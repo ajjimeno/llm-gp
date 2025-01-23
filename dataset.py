@@ -1,56 +1,45 @@
+import json
+import os
 from glob import glob
 
 
+def read_matrix(file_obj):
+    num_rows = int(next(file_obj).split()[0])
+    return [[int(n) for n in next(file_obj).split()] for _ in range(num_rows)]
+
+
 def get_training_examples(problem):
-    input_folder = (
-        f"/home/antonio/Documents/data/experiments/{problem}/training/"  # noqa
+    input_folder = os.path.join(
+        "/home/antonio/Documents/data/experiments", problem, "training"  # noqa
     )
 
     examples = []
 
-    for filename in glob(f"{input_folder}/*.txt"):
-        with open(filename) as f:
-            data = f.read().split("\n")
-
-        pointer = 0
-
+    for filename in glob(os.path.join(input_folder, "*.txt")):
         instance = []
-        for i in range(int(data[0])):
-            example = {}
+        with open(filename) as f:
+            num_examples = int(next(f))  # Read the number of examples
 
-            pointer += 1
-            input = []
-            for j in range(int(data[pointer].split()[0])):
-                pointer += 1
-                input.append([int(n) for n in data[pointer].split()])
+            for _ in range(num_examples):
+                example = {}
 
-            if len(input) == 1:
-                example["input"] = input[0]
-            else:
-                example["input"] = input
+                def read_matrix(file_obj):
+                    num_rows = int(next(file_obj).split()[0])
+                    matrix = []
+                    for _ in range(num_rows):
+                        row = [int(n) for n in next(file_obj).split()]
+                        matrix.append(row)
+                    return matrix
 
-            output = []
+                example["input"] = read_matrix(f)
+                example["output"] = read_matrix(f)
 
-            pointer += 1
-
-            for j in range(int(data[pointer].split()[0])):
-                pointer += 1
-                output.append([int(n) for n in data[pointer].split()])
-
-            if len(output) == 1:
-                example["output"] = output[0]
-            else:
-                example["output"] = input
-
-            instance.append(example)
+                if len(example["input"]) == 1:
+                    example["input"] = example["input"][0]
+                if len(example["output"]) == 1:
+                    example["output"] = example["output"][0]
+                instance.append(example)
 
         examples.append(instance)
 
-    result = "["
-
-    for example in examples:
-        result += '{"example:"' + str(example) + "},\n"
-
-    result += "]"
-
-    return result
+    return json.dumps(examples, indent=4)
