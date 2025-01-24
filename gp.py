@@ -9,15 +9,18 @@ import random
 import re
 
 import SimulatorCPU as simulator
-import torch
 from tqdm import tqdm
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
 from dataset import get_training_examples
+from llm import get_model
 from programs_check import check_programs
 
 task = "count"
+system_prompt = (
+    "You are an expert assistant that is an expert in evolutionary algorithms."
+)
 
+model = get_model(model_name="qwen")
 
 def extract_python_code(text, prefix="python"):
     match = re.search(rf"```{prefix}(.*?)```", text, re.DOTALL)
@@ -25,29 +28,6 @@ def extract_python_code(text, prefix="python"):
         return match.group(1).strip()
     else:
         return None
-
-
-# In[2]:
-
-
-# bnb_config = BitsAndBytesConfig(load_in_8bit=True)
-bnb_config = BitsAndBytesConfig(
-    load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16
-)
-# model_name = "Qwen/Qwen2.5-Math-1.5B-Instruct"  # Replace with the desired model size
-model_name = "Qwen/Qwen2.5-Coder-7B-Instruct"
-# model_name = "Qwen/Qwen2.5-Math-7B-Instruct"
-model = AutoModelForCausalLM.from_pretrained(
-    model_name,
-    # torch_dtype="auto",
-    torch_dtype=torch.float16,
-    device_map="cuda",
-    quantization_config=bnb_config,
-)
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-
-
-# In[3]:
 
 
 def is_syntax_correct(individual):
@@ -84,41 +64,6 @@ def clean_output(string):
 
 
 # In[4]:
-
-
-def generate_answer(question):
-    prompt = str(question)
-
-    """
-    print("==============BEGINNING===============")
-    print(prompt)
-    print("======================================")
-    """
-
-    messages = [
-        {
-            "role": "system",
-            "content": "You are an expert assistant that is an expert in evolutionary algorithms.",
-        },
-        {"role": "user", "content": prompt},
-    ]
-    text = tokenizer.apply_chat_template(
-        messages, tokenize=False, add_generation_prompt=True
-    )
-    model_inputs = tokenizer([text], return_tensors="pt").to(model.device)
-
-    with torch.no_grad():
-        generated_ids = model.generate(**model_inputs, max_new_tokens=1500)
-    generated_ids = [
-        output_ids[len(input_ids) :]
-        for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
-    ]
-
-    response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[
-        0
-    ]
-
-    return response  # int(answer.split("\n")[0].split("}")[0])
 
 
 # In[5]:
@@ -239,7 +184,7 @@ Before generating any explanation, revise your understanding of the problem with
 
 # In[6]:
 
-description = generate_answer(problem_description)
+description = model(system_prompt=system_prompt, user_prompt=problem_description)
 
 print(description)
 
@@ -250,8 +195,9 @@ population = []
 
 while True:
     try:
-        output = generate_answer(
-            """
+        output = model(
+            system_prompt=system_prompt,
+            user_prompt="""
         Get inspiration from the following explanation of the problem:
 
         <explanation>
@@ -278,7 +224,7 @@ while True:
         ]
 
         """
-            + functions
+            + functions,
         )
 
         print(output)
@@ -315,9 +261,7 @@ while True:
 # In[14]:
 
 # s = simulator.Runner("/home/antonio/Documents/data/experiments/sorted/training")
-s = simulator.Runner(
-    f"/home/antonio/Documents/data/experiments/{task}/training"
-)
+s = simulator.Runner(f"/home/antonio/Documents/data/experiments/{task}/training")
 
 population = list(zip(population, s.run(population)))
 
@@ -432,8 +376,9 @@ The task has the following description, which can be used to guide the crossover
 for i in tqdm(range(100)):
     mutations = [
         clean_output(
-            generate_answer(
-                get_guided_mutation_prompt(individual[0], individual[1])
+            model(
+                system_prompt=system_prompt,
+                user_prompt=get_guided_mutation_prompt(individual[0], individual[1]),
             )
         )
         for individual in tqdm(population, position=0, leave=True)
@@ -442,8 +387,9 @@ for i in tqdm(range(100)):
 
     xovers = [
         clean_output(
-            generate_answer(
-                get_guided_x_over_prompt(p1[0], p1[1], p2[0], p2[1])
+            model(
+                system_prompt=system_prompt,
+                user_prompt=get_guided_x_over_prompt(p1[0], p1[1], p2[0], p2[1]),
             )
         )
         for p1, p2 in tqdm(
@@ -454,9 +400,7 @@ for i in tqdm(range(100)):
 
     # population = population + mutations + xovers
 
-    new_population = [
-        clean_output(individual) for individual in (mutations + xovers)
-    ]
+    new_population = [clean_output(individual) for individual in (mutations + xovers)]
 
     random.shuffle(new_population)
 
@@ -470,9 +414,7 @@ for i in tqdm(range(100)):
         for individual in new_population:
             print(individual, file=f)
 
-    new_population = population + list(
-        zip(new_population, s.run(new_population))
-    )
+    new_population = population + list(zip(new_population, s.run(new_population)))
 
     sorted_population = sorted(new_population, key=lambda x: x[1], reverse=True)
 
