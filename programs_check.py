@@ -3,9 +3,7 @@ from deap import base, creator
 from runner import Runner, set_pset
 
 creator.create("FitnessMin", base.Fitness, weights=(1.0, 0.000000000000005))
-creator.create(
-    "Individual", gp_algorithm.PrimitiveTree, fitness=creator.FitnessMin
-)
+creator.create("Individual", gp_algorithm.PrimitiveTree, fitness=creator.FitnessMin)
 
 
 def is_valid_program(pset, program):

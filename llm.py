@@ -1,17 +1,22 @@
+import os
 from abc import ABC, abstractmethod
 from typing import Literal
 
 import torch
-
-# from openai import OpenAI
+from dotenv import load_dotenv
+from openai import OpenAI
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+
+load_dotenv()
 
 
 def get_model(model_name: Literal["qwen", "deepseek"] = "qwen") -> int:
     if model_name == "qwen":
         return Qwen()
     elif model_name == "deepseek":
-        pass
+        return Openai(
+            api_key=os.getenv("LLM_API_KEY"), api_url=os.getenv("LLM_API_URL")
+        )
 
     raise ValueError(f"Model {model_name} not available")
 

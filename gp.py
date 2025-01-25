@@ -5,22 +5,27 @@
 
 import codeop
 import json
+import os
 import random
 import re
 
 import SimulatorCPU as simulator
+from dotenv import load_dotenv
 from tqdm import tqdm
 
 from dataset import get_training_examples
 from llm import get_model
 from programs_check import check_programs
 
+load_dotenv()
+
 task = "count"
 system_prompt = (
     "You are an expert assistant that is an expert in evolutionary algorithms."
 )
 
-model = get_model(model_name="qwen")
+model = get_model(model_name=os.getenv("LLM_NAME"))
+
 
 def extract_python_code(text, prefix="python"):
     match = re.search(rf"```{prefix}(.*?)```", text, re.DOTALL)
@@ -117,13 +122,13 @@ input_min(): returns the minimum value of the current training input example.
 input_read(): returns the value at the current position of the training input list.
 input_move_left(): moves the current position in the training input list to the left. No value is returned.
 input_move_right(): moves the current position in the training input list to the right. No value is returned.
-get_length_input_x(): get the length of the training input list.
+get_length_input_x(): returns an integer with the length of the training input list.
 reset_input_position(): resets the position to the beginning of the training input list. No value is returned.
 
 These are functions that work on the training output list:
 
 output_read(): returns the value at the current position of the training output list
-get_length_output_x(): returns the length of the training output list
+get_length_output_x(): returns an integer with the the length of the training output list
 output_move_left(): moves the current position in the training output list to the left
 output_move_right(): moves the current position in the training output list to the right
 reset_output_position(): resets the position to the beginning of the training output list
@@ -141,7 +146,7 @@ The following functions work on the testing input list:
 testing_input_max (): returns the maximum value of the testing input list
 testing_input_min (): returns the minimum value of the testing input list
 testing_input_read (): returns the current value of the testing input list
-get_testing_length_input_x (): returns the length of the testing input list
+get_testing_length_input_x (): returns an integer with the length of the testing input list
 testing_input_move_right (): moves the pointer to the list to the right, but does not come back to the initial position if overflown
 testing_reset_input_position (): sets the position of the pointer to zero
 
@@ -149,12 +154,11 @@ The following functions work on the testing output list:
 
 testing_output_read (): returns the current value of the testing output list
 testing_output_write(Integer): writes the Integer in the current position of the testing output list. Only values or properties read from the testing input or output list can be used valid inputs for this function. 
-get_testing_length_output_x (): returns the length of the testing list
+get_testing_length_output_x (): returns an integer the length of the testing list
 bigger_than_testing_output_next (): returs true if the next value is larger in the testing output list
 swap_testing_output_next (): interchanges the current value in the test output list with the next one of the test output list. No value is returned.
 testing_output_move_right (): moves the pointer to the list to the right, but does not come back to the initial position if overflown. No value is returned.
 testing_reset_output_position (): sets the position of the pointer to zero. No value is returned.
-
 
 """
 
