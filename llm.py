@@ -78,6 +78,7 @@ class Qwen(LLMModel):
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     def __call__(self, system_prompt, user_prompt) -> str:
+        print(user_prompt)
         messages = [
             {
                 "role": "system",

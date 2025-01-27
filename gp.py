@@ -3,6 +3,8 @@
 
 # In[1]:
 
+import datetime
+
 import codeop
 import json
 import os
@@ -16,10 +18,17 @@ from tqdm import tqdm
 from dataset import get_training_examples
 from llm import get_model
 from programs_check import check_programs
+import sys
 
 load_dotenv()
 
-task = "count"
+task = os.getenv("RUNNING_TASK")
+running_mode=os.getenv("RUNNING_MODE")
+
+if task not in ["count", "inv-sort"] or running_mode not in ["full", "initial"]:
+    raise ValueError ("Revise task and running mode")
+
+
 system_prompt = (
     "You are an expert assistant that is an expert in evolutionary algorithms."
 )
@@ -261,6 +270,13 @@ while True:
 
     count += 1
     print(f"Trying again {count}")
+
+if running_mode == "initial":
+    with open(f"programs-{task}-{datetime.datetime.now()}.txt", "w") as f:
+        json.dump(population, f)
+
+    sys.exit(0)
+
 
 # In[14]:
 
