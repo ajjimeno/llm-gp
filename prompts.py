@@ -162,7 +162,7 @@ class GeneticPrompting:
 
         return description
 
-    def get_problem_programs(self, descriptiom):
+    def get_problem_programs(self, description):
         count = 0
 
         population = []
