@@ -8,10 +8,13 @@ import SimulatorCPU as simulator
 from dotenv import load_dotenv
 from tqdm import tqdm
 
+from initial_population import get_population
 from programs_check import check_programs
 from prompts import GeneticPrompting
 
 load_dotenv()
+
+population_size = 300
 
 task = os.getenv("RUNNING_TASK")
 running_mode = os.getenv("RUNNING_MODE")
@@ -43,8 +46,10 @@ population = list(zip(population, s.run(population)))
 
 print(population)
 
+population += get_population(population_size)
 
-for i in tqdm(range(100)):
+
+for i in tqdm(range(1500)):
     mutations = prompting.get_guided_mutation_programs(description, population)
 
     xovers = prompting.get_guided_x_over_programs(description, population)
@@ -66,6 +71,6 @@ for i in tqdm(range(100)):
     print(sorted_population[:5])
 
     # Selection
-    population = sorted_population[:300]
+    population = sorted_population[:population_size]
 
     random.shuffle(population)

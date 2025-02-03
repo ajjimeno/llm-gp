@@ -224,7 +224,7 @@ class GeneticPrompting:
                 population = check_programs(population)
                 print(population)
 
-                if len(population) > 50:
+                if len(population) > 30:
                     break
             except Exception as e:
                 print(e)
