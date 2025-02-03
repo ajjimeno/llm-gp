@@ -1,5 +1,6 @@
 import json
 import os
+import random
 from glob import glob
 
 
@@ -15,7 +16,10 @@ def get_training_examples(problem):
 
     examples = []
 
-    for filename in glob(os.path.join(input_folder, "*.txt")):
+    filenames = glob(os.path.join(input_folder, "*.txt"))
+    random.shuffle(filenames)
+
+    for filename in filenames[:100]:
         instance = []
         with open(filename) as f:
             num_examples = int(next(f))  # Read the number of examples
