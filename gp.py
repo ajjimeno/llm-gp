@@ -42,14 +42,17 @@ if running_mode == "initial":
 
 s = simulator.Runner(f"/home/antonio/Documents/data/experiments/{task}/training")
 
+population += get_population(population_size)
+
 population = list(zip(population, s.run(population)))
 
 print(population)
 
-population += get_population(population_size)
-
+print(sorted(population, key=lambda x: x[1], reverse=True)[:5])
 
 for i in tqdm(range(1500)):
+    print(f"Epoch {i}")
+
     mutations = prompting.get_guided_mutation_programs(description, population)
 
     xovers = prompting.get_guided_x_over_programs(description, population)
