@@ -279,7 +279,7 @@ class GeneticPrompting:
     """
         )
 
-    def get_guided_mutation_programs(self, description, population):
+    def get_guided_mutation_programs(self, description, population, probability=0.05):
         return [
             clean_output(
                 self.model(
@@ -290,7 +290,7 @@ class GeneticPrompting:
                 )
             )
             for individual in tqdm(population, position=0, leave=True)
-            if random.random() > 0.5
+            if random.random() > probability
         ]
 
     def _get_x_over_prompt(self, individual1, individual2):
@@ -345,7 +345,7 @@ class GeneticPrompting:
     """
         )
 
-    def get_guided_x_over_programs(self, description, population):
+    def get_guided_x_over_programs(self, description, population, probability=0.05):
         return [
             clean_output(
                 self.model(
@@ -358,7 +358,7 @@ class GeneticPrompting:
             for p1, p2 in tqdm(
                 list(zip(population[1:], population[0:-1])), position=0, leave=True
             )
-            if random.random() > 0.5
+            if random.random() > probability
         ]
 
 
