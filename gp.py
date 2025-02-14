@@ -44,7 +44,7 @@ if running_mode == "initial":
 
     sys.exit(0)
 
-s = simulator.Runner(f"/home/antonio/Documents/data/experiments/{task}/training")
+s = simulator.Runner(f"{os.getenv('DATA_FOLDER')}/{task}/training")
 
 population += get_population(population_size)
 
