@@ -57,22 +57,22 @@ print(sorted(population, key=lambda x: x[1], reverse=True)[:5])
 for i in tqdm(range(1500)):
     print(f"Epoch {i}")
 
-    mutations = prompting.get_guided_mutation_programs(description, population)
+    mutations = prompting.get_guided_mutation_programs(description, population, probability=0.8)
 
     mutations += [
         str(toolbox.mutate(get_valid_program(individual[0])))
         for individual in tqdm(population, position=0, leave=True)
-        if random.random() > 0.3
+        if random.random() > 0.7
     ]
 
-    xovers = prompting.get_guided_x_over_programs(description, population)
+    xovers = prompting.get_guided_x_over_programs(description, population, probability=0.8)
 
     xovers_pairs = [
         toolbox.mate(get_valid_program(p1[0]), get_valid_program(p2[0]))
         for p1, p2 in tqdm(
             list(zip(population[1:], population[0:-1])), position=0, leave=True
         )
-        if random.random() > 0.3
+        if random.random() > 0.7
     ]
 
     xovers += [str(ind) for ind in list(itertools.chain.from_iterable(xovers_pairs))]

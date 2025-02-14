@@ -227,7 +227,7 @@ class GeneticPrompting:
                 if len(population) > 30:
                     break
             except Exception as e:
-                print(e)
+                print(f"Error: {e}")
 
             count += 1
             print(f"Trying again {count}")
@@ -279,7 +279,7 @@ class GeneticPrompting:
     """
         )
 
-    def get_guided_mutation_programs(self, description, population, probability=0.05):
+    def get_guided_mutation_programs(self, description, population, probability=0.95):
         return [
             clean_output(
                 self.model(
@@ -345,7 +345,7 @@ class GeneticPrompting:
     """
         )
 
-    def get_guided_x_over_programs(self, description, population, probability=0.05):
+    def get_guided_x_over_programs(self, description, population, probability=0.95):
         return [
             clean_output(
                 self.model(

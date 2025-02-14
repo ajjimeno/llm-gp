@@ -33,7 +33,7 @@ toolbox.decorate(
 )  # 17, default, 30 most of tests
 
 
-def get_valid_program(pset, program):
+def get_valid_program(program):
     try:
         return creator.Individual.from_string(program, pset)
     except Exception as e:
@@ -45,5 +45,5 @@ def check_programs(programs):
     return [
         str(creator.Individual.from_string(p, pset))
         for p in programs
-        if get_valid_program(pset, p)
+        if get_valid_program(p)
     ]
