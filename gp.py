@@ -6,14 +6,19 @@ import random
 import sys
 
 import SimulatorCPU as simulator
+from deap import gp
 from dotenv import load_dotenv
 from tqdm import tqdm
 
 from initial_population import get_population
-from programs_check import check_programs, toolbox, get_valid_program
+from programs_check import (
+    check_programs,
+    get_program_length,
+    get_valid_program,
+    toolbox,
+)
 from prompts import GeneticPrompting
-
-from deap import gp
+from selection import selStochasticUniversalSampling
 
 load_dotenv()
 
@@ -57,7 +62,9 @@ print(sorted(population, key=lambda x: x[1], reverse=True)[:5])
 for i in tqdm(range(1500)):
     print(f"Epoch {i}")
 
-    mutations = prompting.get_guided_mutation_programs(description, population, probability=0.8)
+    mutations = prompting.get_guided_mutation_programs(
+        description, population, probability=0.8
+    )
 
     mutations += [
         str(toolbox.mutate(get_valid_program(individual[0])))
@@ -65,7 +72,9 @@ for i in tqdm(range(1500)):
         if random.random() > 0.7
     ]
 
-    xovers = prompting.get_guided_x_over_programs(description, population, probability=0.8)
+    xovers = prompting.get_guided_x_over_programs(
+        description, population, probability=0.8
+    )
 
     xovers_pairs = [
         toolbox.mate(get_valid_program(p1[0]), get_valid_program(p2[0]))
@@ -90,6 +99,24 @@ for i in tqdm(range(1500)):
     new_population = population + list(zip(new_population, s.run(new_population)))
 
     sorted_population = sorted(new_population, key=lambda x: x[1], reverse=True)
+
+    max_score = sorted_population[0][1]
+    min_max_length = get_program_length(sorted_population[0][0])
+
+    for individual in sorted_population[1:]:
+        if individual[1] == max_score:
+            min_max_length = min(min_max_length, get_program_length(individual[0]))
+        else:
+            break
+
+    sorted_population = selStochasticUniversalSampling(
+        [
+            individual
+            for individual in sorted_population
+            if get_program_length(individual[0]) < min_max_length + 25
+        ],
+        k=300,
+    )
 
     print(sorted_population[:5])
 

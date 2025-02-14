@@ -47,3 +47,7 @@ def check_programs(programs):
         for p in programs
         if get_valid_program(p)
     ]
+
+
+def get_program_length(program):
+    return len(creator.Individual.from_string(program, pset))
