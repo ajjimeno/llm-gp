@@ -122,6 +122,7 @@ for i in tqdm(range(1500)):
 
     population.append(elitism_individual)
 
+    print(elitism_individual)
     print(sorted_population[:5])
 
     # Selection
