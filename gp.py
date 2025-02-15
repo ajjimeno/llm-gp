@@ -102,14 +102,16 @@ for i in tqdm(range(1500)):
 
     max_score = sorted_population[0][1]
     min_max_length = get_program_length(sorted_population[0][0])
+    elitism_individual = sorted_population[0]
 
     for individual in sorted_population[1:]:
         if individual[1] == max_score:
             min_max_length = min(min_max_length, get_program_length(individual[0]))
+            elitism_individual = individual
         else:
             break
 
-    sorted_population = selStochasticUniversalSampling(
+    population = selStochasticUniversalSampling(
         [
             individual
             for individual in sorted_population
@@ -118,9 +120,11 @@ for i in tqdm(range(1500)):
         k=300,
     )
 
+    population.append(elitism_individual)
+
     print(sorted_population[:5])
 
     # Selection
-    population = sorted_population[:population_size]
+    #population = sorted_population[:population_size]
 
     random.shuffle(population)
