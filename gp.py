@@ -67,7 +67,7 @@ for i in tqdm(range(1500)):
     )
 
     mutations += [
-        str(toolbox.mutate(get_valid_program(individual[0])))
+        str(toolbox.mutate(get_valid_program(individual[0]))[0])
         for individual in tqdm(population, position=0, leave=True)
         if random.random() > 0.7
     ]
@@ -126,6 +126,6 @@ for i in tqdm(range(1500)):
     print(sorted_population[:5])
 
     # Selection
-    #population = sorted_population[:population_size]
+    # population = sorted_population[:population_size]
 
     random.shuffle(population)
