@@ -2,3 +2,6 @@ openai
 python-dotenv
 tqdm
 transformers
+torch
+bitsandbytes
+accelerate
