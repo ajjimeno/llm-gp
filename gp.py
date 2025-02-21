@@ -63,17 +63,17 @@ for i in tqdm(range(1500)):
     print(f"Epoch {i}")
 
     mutations = prompting.get_guided_mutation_programs(
-        description, population, probability=0.8
+        description, population, probability=0.9
     )
 
     mutations += [
         str(toolbox.mutate(get_valid_program(individual[0]))[0])
         for individual in tqdm(population, position=0, leave=True)
-        if random.random() > 0.7
+        if random.random() > 0.5
     ]
 
     xovers = prompting.get_guided_x_over_programs(
-        description, population, probability=0.8
+        description, population, probability=0.9
     )
 
     xovers_pairs = [
@@ -81,7 +81,7 @@ for i in tqdm(range(1500)):
         for p1, p2 in tqdm(
             list(zip(population[1:], population[0:-1])), position=0, leave=True
         )
-        if random.random() > 0.7
+        if random.random() > 0.5
     ]
 
     xovers += [str(ind) for ind in list(itertools.chain.from_iterable(xovers_pairs))]
@@ -106,8 +106,10 @@ for i in tqdm(range(1500)):
 
     for individual in sorted_population[1:]:
         if individual[1] == max_score:
-            min_max_length = min(min_max_length, get_program_length(individual[0]))
-            elitism_individual = individual
+            n_length = get_program_length(individual[0])
+            if min_max_length > n_length:
+                min_max_length = n_length
+                elitism_individual = individual
         else:
             break
 

@@ -37,7 +37,7 @@ def get_valid_program(program):
     try:
         return creator.Individual.from_string(program, pset)
     except Exception as e:
-        print(e)
+        print(e, program)
         return None
 
 
