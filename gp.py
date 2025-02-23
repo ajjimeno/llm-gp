@@ -50,6 +50,8 @@ if __name__ == "__main__":
 
     task = os.getenv("RUNNING_TASK")
     running_mode = os.getenv("RUNNING_MODE")
+    
+    print(f"Task: {task}, running_mode = {running_mode}")
 
     if task not in [
         "count",
