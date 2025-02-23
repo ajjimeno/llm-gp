@@ -58,7 +58,7 @@ class Qwen(LLMModel):
     def __init__(
         self,
         model_name: Literal[
-            "Qwen/Qwen2.5-Coder-7B-Instruct"
+            "Qwen/Qwen2.5-Coder-1.5B-Instruct", "Qwen/Qwen2.5-Coder-7B-Instruct"
         ] = "Qwen/Qwen2.5-Coder-7B-Instruct",
         bit_config: Literal["8bit", "4bit", "none"] = "4bit",
     ):
