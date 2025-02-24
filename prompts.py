@@ -44,10 +44,15 @@ functions = """
 
         When writing the functions consider that the evaluation is done on the testing output, there should be a primitive that writes to the output used in the generated functions.
         When writing the functions, the training set should be used to decide what is the action to do on the testing output list.
-        
-        The following example checks the values in the training set to understand what needs to be done on the testing output list. Programs should follow this.
 
+        The following functions are only an example of valid syntaxis and is not an example of functions to be written.
+
+        <example>
+        comparison(equalW(input_min(), input_read()),prog2(testing_output_move_right(), swap_testing_output_next()),loop(get_testing_length_output_x(), swap_testing_output_next()))
+        </example>
+        <example>
         comparison(equalW(input_min(), input_read()),prog2(testing_output_move_right(), swap_testing_output_next()),loop(get_testing_length_output_x(), testing_output_write(testing_input_max())))
+        </example>
 
 These are the available primitives to build the output function group by different properties describe at the beginning of the group
 The primitives are defined by the name, the types of attributes and a description of what they do.
@@ -236,10 +241,25 @@ class GeneticPrompting:
 
     def _get_mutation_prompt(self, individual):
         return f"""
-    Write a mutation to the following function using the function specification below to build the function tree, do not add any number or function that is not mentioned in the list of valid functions.
-    Use this number {random.randint(0,9999999)} as random seed for the generation of the mutation. 
+
+    Write a new function using the following function, the explanation of the task, and the primitive specification below to build the function tree, do not add any number or primitive that is not mentioned in the list of valid primitives.
     The function is expressed as a tree structure using parenthesis, without any python code.
+    
+    A mutation is defined as the following steps:
+    
+    1. build the tree of the function
+    2. analyze the tree branches with respect to the description of the task
+    3. identify one of the subtrees that might underperform for the task in hand
+    4. create a new valid subtree using the available primitives and valid primitive arguments and replace the identified subtree
+    
+    Use number {random.randint(0,9999999)} as random seed for the generation of the mutation.
+    The mutation can be inspired by the function evaluation score and the the description of the task mentioned below.
+    If something is strange, consider adding functions that check the training data for action to be done on the testing output list.
+
+    This is the input function that has to be mutated. Build the tree and replace one of the subtrees.
+    
     {individual}
+
     No other python code or function should be added than the function.
     Just output the mutated function.
     Review the new function, so it is fully compliant with the functions.
@@ -251,18 +271,27 @@ class GeneticPrompting:
     def _get_guided_mutation_prompt(self, description, individual, score):
         return (
             f"""
-    Write a mutation using the following function using the function specification below to build the function tree, do not add any number or function that is not mentioned in the list of valid functions.
-    Use this number {random.randint(0,9999999)} as random seed for the generation of the mutation.
+    Write a new function using the following function, the explanation of the task, and the primitive specification below to build the function tree, do not add any number or primitive that is not mentioned in the list of valid primitives.
     The function is expressed as a tree structure using parenthesis, without any python code.
+    
+    A mutation is defined as the following steps:
+    
+    1. build the tree of the function
+    2. analyze the tree branches with respect to the description of the task
+    3. identify one of the subtrees that might underperform for the task in hand
+    4. create a new valid subtree using the available primitives and valid primitive arguments and replace the identified subtree
+    
+    Use number {random.randint(0,9999999)} as random seed for the generation of the mutation.
     The mutation can be inspired by the function evaluation score and the the description of the task mentioned below.
     If something is strange, consider adding functions that check the training data for action to be done on the testing output list.
 
-    This is the input function. 
+    This is the input function that has to be mutated. Build the tree and replace one of the subtrees.
+    
     {individual}
 
     When evaluated, the function above has a score of {score} of 1.0.
 
-    No other python code or function should be added than the function.
+    No other python code or primitive should be added than the function.
     Just output the mutated function.
     Review the new function, so it is fully compliant with the primitives.
     Try to balance training and testing primitives and combine primitives present in the input function.

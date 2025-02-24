@@ -129,7 +129,7 @@ if __name__ == "__main__":
 
                 new_program = (
                     str(toolbox.mutate(get_valid_program(individual[0]))[0])
-                    if random.random() > 0.2
+                    if random.random() > 0.05
                     else prompting.get_guided_mutation_program(description, individual)
                 )
 
