@@ -127,12 +127,23 @@ if __name__ == "__main__":
             if random.random() > 0.5:
                 individual = population[i]
 
-                new_program = (
-                    str(toolbox.mutate(get_valid_program(individual[0]))[0])
-                    if random.random() > 0.05
-                    else prompting.get_guided_mutation_program(description, individual)
-                )
-
+                new_program = str(toolbox.mutate(get_valid_program(individual[0]))[0])
+                    
                 population[i] = (new_program, s.run([new_program])[0])
 
+        """
+        for i in tqdm(range(len(population))):
+            if random.random() > 0.99:
+                individual = population[i]
+                new_program = prompting.get_guided_mutation_program(description, individual)
+
+                if new_program != individual[0]:
+                    population.append((new_program, s.run([new_program])[0]))
+        """
+        """
+        new_program = prompting.get_guided_mutation_program(description, elitism_individual)
+
+        if new_program != elitism_individual[0]:
+            population.append((new_program, s.run([new_program])[0]))
+        """
         population.append(elitism_individual)
