@@ -46,11 +46,17 @@ def get_top_individual(population):
 
 if __name__ == "__main__":
 
-    population_size = 300
+    population_size = int(os.getenv("POPULATION_SIZE", 300))
+
+    mutation_probability = float(os.getenv("MUTATION_PROBABILITY", 0.50))
+    crossover_probability = float(os.getenv("CROSSOVER_PROBABILITY", 0.50))
+
+    llm_mutation_probability = float(os.getenv("LLM_MUTATION_PROBABILITY", 0.99))
+    llm_elite_mutation = bool(os.getenv("LLM_ELITE_MUTATION", True))
 
     task = os.getenv("RUNNING_TASK")
     running_mode = os.getenv("RUNNING_MODE")
-    
+
     print(f"Task: {task}, running_mode = {running_mode}")
 
     if task not in [
@@ -98,7 +104,7 @@ if __name__ == "__main__":
                 for individual in population
                 if get_program_length(individual[0]) < min_max_length + 25
             ],
-            k=300,
+            k=population_size,
         )
 
         print(f"Top: {elitism_individual}")
@@ -108,7 +114,7 @@ if __name__ == "__main__":
                 print(individual, file=f)
 
         for i in tqdm(range(0, len(population), 2)):
-            if random.random() > 0.5:
+            if random.random() > crossover_probability:
                 if i + 1 >= len(population):
                     break
 
@@ -126,26 +132,29 @@ if __name__ == "__main__":
                 population[i + 1] = (program2, s.run([program2])[0])
 
         for i in tqdm(range(len(population))):
-            if random.random() > 0.5:
+            if random.random() > mutation_probability:
                 individual = population[i]
 
                 new_program = str(toolbox.mutate(get_valid_program(individual[0]))[0])
-                    
+
                 population[i] = (new_program, s.run([new_program])[0])
 
-        """
         for i in tqdm(range(len(population))):
-            if random.random() > 0.99:
+            if random.random() > llm_mutation_probability:
                 individual = population[i]
-                new_program = prompting.get_guided_mutation_program(description, individual)
+                new_program = prompting.get_guided_mutation_program(
+                    description, individual
+                )
 
                 if new_program != individual[0]:
                     population.append((new_program, s.run([new_program])[0]))
-        """
-        """
-        new_program = prompting.get_guided_mutation_program(description, elitism_individual)
 
-        if new_program != elitism_individual[0]:
-            population.append((new_program, s.run([new_program])[0]))
-        """
+        if llm_elite_mutation:
+            new_program = prompting.get_guided_mutation_program(
+                description, elitism_individual
+            )
+
+            if new_program != elitism_individual[0]:
+                population.append((new_program, s.run([new_program])[0]))
+
         population.append(elitism_individual)

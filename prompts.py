@@ -53,6 +53,12 @@ functions = """
         <example>
         comparison(equalW(input_min(), input_read()),prog2(testing_output_move_right(), swap_testing_output_next()),loop(get_testing_length_output_x(), testing_output_write(testing_input_max())))
         </example>
+        <example>
+        prog2(testing_reset_output_position(), testing_output_write(testing_input_read()))
+        </example>
+        <example>
+        loop(get_testing_length_output_x(), testing_output_move_right())
+        </example>
 
 These are the available primitives to build the output function group by different properties describe at the beginning of the group
 The primitives are defined by the name, the types of attributes and a description of what they do.
@@ -237,7 +243,7 @@ class GeneticPrompting:
             count += 1
             print(f"Trying again {count}")
 
-        return population
+        return list(set(population))
 
     def _get_mutation_prompt(self, individual):
         return f"""
