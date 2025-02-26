@@ -1,0 +1,55 @@
+# Created by .ignore support plugin (hsz.mobi)
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pytest_cache/
+*.py[cod]
+.idea/*
+
+# C extensions
+*.so
+
+# Distribution / packaging
+bin/
+build/
+develop-eggs/
+dist/
+eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+*.log
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports / Clonedigger
+.tox/
+.coverage
+.coverage.*
+.cache
+.cover
+metastore_db/
+test-reports/
+nosetests.xml
+coverage.xml
+clonedigger.html
+cover
+coverage.tar.gz
+
+# Translations
+*.mo
+
+# Sphinx documentation
+docs/_build/
+
+# PyCharm
+workspace.xml
+.idea/
+
+data/
