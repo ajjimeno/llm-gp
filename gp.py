@@ -32,118 +32,139 @@ from selection import selStochasticUniversalSampling
 
 load_dotenv()
 
-# TODO: should we move this to a config
-population_size = 300
 
-task = os.getenv("RUNNING_TASK")
-running_mode = os.getenv("RUNNING_MODE")
+def get_top_individual(population):
+    max_score = population[0][1]
+    min_max_length = get_program_length(population[0][0])
+    elitism_individual = population[0]
 
-print(f"Task: {task}, running_mode = {running_mode}")
-# TODO: task is for example the inversion of a list, what is running_mode?
-if task not in [
-    "count",
-    "inverse",
-    "sorted",
-    "max-min",
-    "mixed",
-    "mixed-100",
-] or running_mode not in ["full", "initial"]:
-    raise ValueError("Revise task and running mode")
-
-prompting = GeneticPrompting()
-
-# problem description - what are we going to do
-description = prompting.get_problem_description(task)
-
-# select initial set of programs - what functions are needed to solve this above problem description
-population = prompting.get_problem_programs(description)
-
-if running_mode == "initial":
-    with open(f"programs-{task}-{datetime.datetime.now()}.txt", "w") as f:
-        json.dump(population, f)
-
-    sys.exit(0)
-
-s = simulator.Runner(f"{os.getenv('DATA_FOLDER')}/{task}/training")
-
-# get population with GP
-population += get_population(population_size)
-
-# programs and fit score
-population = list(zip(population, s.run(population)))
-
-print(population)
-
-print(sorted(population, key=lambda x: x[1], reverse=True)[:5])
-
-# why 1500
-for i in tqdm(range(10)):
-    print(f"Epoch {i}")
-
-    mutations = prompting.get_guided_mutation_programs(
-        description, population, probability=0.8
-    )
-
-    mutations += [
-        str(toolbox.mutate(get_valid_program(individual[0]))[0])
-        for individual in tqdm(population, position=0, leave=True)
-        if random.random() > 0.7
-    ]
-
-    xovers = prompting.get_guided_x_over_programs(
-        description, population, probability=0.8
-    )
-
-    xovers_pairs = [
-        toolbox.mate(get_valid_program(p1[0]), get_valid_program(p2[0]))
-        for p1, p2 in tqdm(
-            list(zip(population[1:], population[0:-1])), position=0, leave=True
-        )
-        if random.random() > 0.7
-    ]
-
-    xovers += [str(ind) for ind in list(itertools.chain.from_iterable(xovers_pairs))]
-
-    new_population = [individual for individual in (mutations + xovers)]
-
-    random.shuffle(new_population)
-
-    new_population = check_programs(new_population)
-
-    with open("programs.txt", "w") as f:
-        for individual in new_population:
-            print(individual, file=f)
-
-    new_population = population + list(zip(new_population, s.run(new_population)))
-
-    sorted_population = sorted(new_population, key=lambda x: x[1], reverse=True)
-
-    max_score = sorted_population[0][1]
-    min_max_length = get_program_length(sorted_population[0][0])
-    elitism_individual = sorted_population[0]
-
-    for individual in sorted_population[1:]:
-        if individual[1] == max_score:
-            min_max_length = min(min_max_length, get_program_length(individual[0]))
+    for individual in population[1:]:
+        if individual[1] > max_score:
+            max_score = individual[1]
+            min_max_length = get_program_length(individual[0])
             elitism_individual = individual
-        else:
-            break
-    # TODO: Should some of the constants here be set in a config file?
-    population = selStochasticUniversalSampling(
-        [
-            individual
-            for individual in sorted_population
-            if get_program_length(individual[0]) < min_max_length + 25
-        ],
-        k=300,
-    )
+            continue
 
-    population.append(elitism_individual)
+        if individual[1] == max_score:
+            n_length = get_program_length(individual[0])
+            if min_max_length > n_length:
+                min_max_length = n_length
+                elitism_individual = individual
 
-    print(elitism_individual)
-    print(sorted_population[:5])
+    return min_max_length, elitism_individual
 
-    # Selection
-    # population = sorted_population[:population_size]
 
-    random.shuffle(population)
+if __name__ == "__main__":
+
+    population_size = int(os.getenv("POPULATION_SIZE", 300))
+
+    mutation_probability = float(os.getenv("MUTATION_PROBABILITY", 0.50))
+    crossover_probability = float(os.getenv("CROSSOVER_PROBABILITY", 0.50))
+
+    llm_mutation_probability = float(os.getenv("LLM_MUTATION_PROBABILITY", 0.99))
+    llm_elite_mutation = bool(os.getenv("LLM_ELITE_MUTATION", True))
+
+    task = os.getenv("RUNNING_TASK")
+    running_mode = os.getenv("RUNNING_MODE")
+
+    print(f"Task: {task}, running_mode = {running_mode}")
+
+    if task not in [
+        "count",
+        "inverse",
+        "sorted",
+        "max-min",
+        "mixed",
+        "mixed-100",
+    ] or running_mode not in ["full", "initial"]:
+        raise ValueError("Revise task and running mode")
+
+    prompting = GeneticPrompting()
+
+    description = prompting.get_problem_description(task)
+
+    population = prompting.get_problem_programs(description)
+
+    if running_mode == "initial":
+        with open(f"programs-{task}-{datetime.datetime.now()}.txt", "w") as f:
+            json.dump(population, f)
+
+        sys.exit(0)
+
+    s = simulator.Runner(f"{os.getenv('DATA_FOLDER')}/{task}/training")
+
+    population += get_population(population_size)
+
+    population = list(zip(population, s.run(population)))
+
+    print(population)
+
+    print(sorted(population, key=lambda x: x[1], reverse=True)[:5])
+
+    elitism_individual = None
+
+    for i in tqdm(range(1500)):
+        print(f"Epoch {i}")
+
+        min_max_length, elitism_individual = get_top_individual(population)
+
+        population = selStochasticUniversalSampling(
+            [
+                individual
+                for individual in population
+                if get_program_length(individual[0]) < min_max_length + 25
+            ],
+            k=population_size,
+        )
+
+        print(f"Top: {elitism_individual}")
+
+        with open("programs.txt", "w") as f:
+            for individual in population:
+                print(individual, file=f)
+
+        for i in tqdm(range(0, len(population), 2)):
+            if random.random() > crossover_probability:
+                if i + 1 >= len(population):
+                    break
+
+                individual1 = population[i]
+                individual2 = population[i + 1]
+
+                program1, program2 = toolbox.mate(
+                    get_valid_program(individual1[0]), get_valid_program(individual2[0])
+                )
+
+                program1 = str(program1)
+                program2 = str(program2)
+
+                population[i] = (program1, s.run([program1])[0])
+                population[i + 1] = (program2, s.run([program2])[0])
+
+        for i in tqdm(range(len(population))):
+            if random.random() > mutation_probability:
+                individual = population[i]
+
+                new_program = str(toolbox.mutate(get_valid_program(individual[0]))[0])
+
+                population[i] = (new_program, s.run([new_program])[0])
+
+        for i in tqdm(range(len(population))):
+            if random.random() > llm_mutation_probability:
+                individual = population[i]
+                new_program = prompting.get_guided_mutation_program(
+                    description, individual
+                )
+
+                if new_program != individual[0]:
+                    population.append((new_program, s.run([new_program])[0]))
+
+        if llm_elite_mutation:
+            new_program = prompting.get_guided_mutation_program(
+                description, elitism_individual
+            )
+
+            if new_program != elitism_individual[0]:
+                population.append((new_program, s.run([new_program])[0]))
+
+        population.append(elitism_individual)

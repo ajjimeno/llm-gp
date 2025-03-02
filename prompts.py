@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from dataset import get_training_examples
 from llm import get_model
-from programs_check import check_programs
+from programs_check import check_programs, get_valid_program
 
 load_dotenv()
 
@@ -42,19 +42,30 @@ system_prompt = (
 
 functions = """
 
-        When writing the functions consider that the evaluation is done on the testing output, there should be a function that writes to the output used in the generated functions.
+        When writing the functions consider that the evaluation is done on the testing output, there should be a primitive that writes to the output used in the generated functions.
         When writing the functions, the training set should be used to decide what is the action to do on the testing output list.
-        
-        The following example checks the values in the training set to understand what needs to be done on the testing output list. Programs should follow this.
 
+        The following functions are only an example of valid syntaxis and is not an example of functions to be written.
+
+        <example>
+        comparison(equalW(input_min(), input_read()),prog2(testing_output_move_right(), swap_testing_output_next()),loop(get_testing_length_output_x(), swap_testing_output_next()))
+        </example>
+        <example>
         comparison(equalW(input_min(), input_read()),prog2(testing_output_move_right(), swap_testing_output_next()),loop(get_testing_length_output_x(), testing_output_write(testing_input_max())))
+        </example>
+        <example>
+        prog2(testing_reset_output_position(), testing_output_write(testing_input_read()))
+        </example>
+        <example>
+        loop(get_testing_length_output_x(), testing_output_move_right())
+        </example>
 
-These are the available functions to build the output function group by different properties describe at the beginning of the group
-The functions are defined by the name, the types of attributes and a description of what they do.
-A function returns a value if it is mentioned explicitly.
-No value from the training functions are used for the testing functions.
+These are the available primitives to build the output function group by different properties describe at the beginning of the group
+The primitives are defined by the name, the types of attributes and a description of what they do.
+A primitive returns a value if it is mentioned explicitly.
+No value from the training primitives are used for the testing primitives.
 
-Numbers from 0 to 9 use the following functions:
+Numbers from 0 to 9 use the following primitives:
 
 get0(): return 0
 get1(): return 1
@@ -67,7 +78,7 @@ get7(): return 7
 get8(): return 8
 get9(): return 9
 
-These are functions that an be used to control the flow, which can be used with training and testing functions:
+These are primitives that an be used to control the flow, which can be used with training and testing primitives:
 
 loop (Integer, Operation): iterates using the integer value and executes Operation
 prog2 (Operation, Operation), executes two operations so it always needs two arguments or the interpreter fails, e.g, prog2(testing_output_move_right(), testing_output_move_right())
@@ -91,7 +102,7 @@ input_move_right(): moves the current position in the training input list to the
 get_length_input_x(): returns an integer with the length of the training input list.
 reset_input_position(): resets the position to the beginning of the training input list. No value is returned.
 
-These are functions that work on the training output list:
+These are primitives that work on the training output list:
 
 output_read(): returns the value at the current position of the training output list
 get_length_output_x(): returns an integer with the the length of the training output list
@@ -101,13 +112,13 @@ reset_output_position(): resets the position to the beginning of the training ou
 bigger_than_output_next(): returs true if the next value is larger in the training output list
 
 
-Comparison of elements from the testing set, they should be used with functions expected to return an integer from the testing set of functions.
-The functions that do not return a value should not be used.
+Comparison of elements from the testing set, they should be used with primitives expected to return an integer from the testing set of primitives.
+The primitives that do not return a value should not be used.
 
-bigger_thanR(Integer, Integer): true if the first integer is bigger than the second one, only used with values returned using testing functions. Do not use any get number function, e.g. get6().
-equalR(Integer, Integer): true if the two integers are equal, only used with values returned using testing functions
+bigger_thanR(Integer, Integer): true if the first integer is bigger than the second one, only used with values returned using testing primitives. Do not use any get number primitive, e.g. get6().
+equalR(Integer, Integer): true if the two integers are equal, only used with values returned using testing primitives
 
-The following functions work on the testing input list:
+The following primitives work on the testing input list:
 
 testing_input_max (): returns the maximum value of the testing input list
 testing_input_min (): returns the minimum value of the testing input list
@@ -116,10 +127,10 @@ get_testing_length_input_x (): returns an integer with the length of the testing
 testing_input_move_right (): moves the pointer to the list to the right, but does not come back to the initial position if overflown
 testing_reset_input_position (): sets the position of the pointer to zero
 
-The following functions work on the testing output list:
+The following primitives work on the testing output list:
 
 testing_output_read (): returns the current value of the testing output list
-testing_output_write(Integer): writes the Integer in the current position of the testing output list. Only values or properties read from the testing input or output list can be used valid inputs for this function. 
+testing_output_write(Integer): writes the Integer in the current position of the testing output list. Only values or properties read from the testing input or output list can be used valid inputs for this primitive. 
 get_testing_length_output_x (): returns an integer the length of the testing list
 bigger_than_testing_output_next (): returs true if the next value is larger in the testing output list
 swap_testing_output_next (): interchanges the current value in the test output list with the next one of the test output list. No value is returned.
@@ -237,14 +248,29 @@ class GeneticPrompting:
             count += 1
             print(f"Trying again {count}")
 
-        return population
+        return list(set(population))
 
     def _get_mutation_prompt(self, individual):
         return f"""
-    Write a mutation to the following function using the function specification below to build the function tree, do not add any number or function that is not mentioned in the list of valid functions.
-    Use this number {random.randint(0,9999999)} as random seed for the generation of the mutation. 
+
+    Write a new function using the following function, the explanation of the task, and the primitive specification below to build the function tree, do not add any number or primitive that is not mentioned in the list of valid primitives.
     The function is expressed as a tree structure using parenthesis, without any python code.
+    
+    A mutation is defined as the following steps:
+    
+    1. build the tree of the function
+    2. analyze the tree branches with respect to the description of the task
+    3. identify one of the subtrees that might underperform for the task in hand
+    4. create a new valid subtree using the available primitives and valid primitive arguments and replace the identified subtree
+    
+    Use number {random.randint(0,9999999)} as random seed for the generation of the mutation.
+    The mutation can be inspired by the function evaluation score and the the description of the task mentioned below.
+    If something is strange, consider adding functions that check the training data for action to be done on the testing output list.
+
+    This is the input function that has to be mutated. Build the tree and replace one of the subtrees.
+    
     {individual}
+
     No other python code or function should be added than the function.
     Just output the mutated function.
     Review the new function, so it is fully compliant with the functions.
@@ -256,21 +282,30 @@ class GeneticPrompting:
     def _get_guided_mutation_prompt(self, description, individual, score):
         return (
             f"""
-    Write a mutation using the following function using the function specification below to build the function tree, do not add any number or function that is not mentioned in the list of valid functions.
-    Use this number {random.randint(0,9999999)} as random seed for the generation of the mutation.
+    Write a new function using the following function, the explanation of the task, and the primitive specification below to build the function tree, do not add any number or primitive that is not mentioned in the list of valid primitives.
     The function is expressed as a tree structure using parenthesis, without any python code.
+    
+    A mutation is defined as the following steps:
+    
+    1. build the tree of the function
+    2. analyze the tree branches with respect to the description of the task
+    3. identify one of the subtrees that might underperform for the task in hand
+    4. create a new valid subtree using the available primitives and valid primitive arguments and replace the identified subtree
+    
+    Use number {random.randint(0,9999999)} as random seed for the generation of the mutation.
     The mutation can be inspired by the function evaluation score and the the description of the task mentioned below.
     If something is strange, consider adding functions that check the training data for action to be done on the testing output list.
 
-    This is the input function. 
+    This is the input function that has to be mutated. Build the tree and replace one of the subtrees.
+    
     {individual}
 
     When evaluated, the function above has a score of {score} of 1.0.
 
-    No other python code or function should be added than the function.
+    No other python code or primitive should be added than the function.
     Just output the mutated function.
-    Review the new function, so it is fully compliant with the functions.
-    Try to balance training and testing functions and combine functions for present in the input function.
+    Review the new function, so it is fully compliant with the primitives.
+    Try to balance training and testing primitives and combine primitives present in the input function.
 
     {functions}
 
@@ -283,6 +318,31 @@ class GeneticPrompting:
     </explanation>
     """
         )
+
+    def get_guided_mutation_program(self, description, individual):
+        try:
+            new_program = self._get_guided_mutation_program(description, individual)
+            return new_program
+        except Exception as e:
+            return individual[0]
+
+    def _get_guided_mutation_program(self, description, individual):
+        program = clean_output(
+            self.model(
+                system_prompt=system_prompt,
+                user_prompt=self._get_guided_mutation_prompt(
+                    description, individual[0], individual[1]
+                ),
+            )
+        )
+
+        byte_program = get_valid_program(program)
+
+        if not byte_program:
+            print(f"Failed program: {program}")
+            return individual[0]
+
+        return str(byte_program)
 
     def get_guided_mutation_programs(self, description, population, probability=0.95):
         return [
@@ -349,6 +409,21 @@ class GeneticPrompting:
     </explanation>
     """
         )
+
+    """
+    def _get_guided_x_over_programs(self, description, individual1, individual2):
+        program1, program2 = clean_output(self.model(
+                    system_prompt=system_prompt,
+                    user_prompt=self._get_guided_x_over_prompt(
+                        description, p1[0], p1[1], p2[0], p2[1]
+                    ),
+                )
+            )
+            for p1, p2 in tqdm(
+                list(zip(population[1:], population[0:-1])), position=0, leave=True
+            )
+            if random.random() > probability
+    """
 
     def get_guided_x_over_programs(self, description, population, probability=0.95):
         return [
