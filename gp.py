@@ -5,6 +5,25 @@ import os
 import random
 import sys
 
+gp_path = os.path.join(os.path.realpath(os.path.dirname(__file__)), '../gp')
+# Get the current PYTHONPATH (if any)
+current_path = os.environ.get('PYTHONPATH', '')
+
+# Add new path to PYTHONPATH environment variable
+os.environ['PYTHONPATH'] = f"{gp_path}:{current_path}"
+
+# Also add to sys.path for the current process
+sys.path.insert(0, gp_path)
+
+# print(os.getcwd())
+# path = os.getenv('DATA_FOLDER')
+# print(f"{path}")
+# task = os.getenv("RUNNING_TASK")
+# with open(f"{path}/{task}/training/sorted-0.txt", "r") as f:
+#     data = f.read()
+
+# print(f"{data}")
+
 import SimulatorCPU as simulator
 from deap import gp
 from dotenv import load_dotenv
@@ -22,13 +41,16 @@ from selection import selStochasticUniversalSampling
 
 load_dotenv()
 
+# TODO: should we move this to a config
 population_size = 300
 
 task = os.getenv("RUNNING_TASK")
 running_mode = os.getenv("RUNNING_MODE")
 
 print(f"Task: {task}, running_mode = {running_mode}")
+s = simulator.Runner(f"{os.getenv('DATA_FOLDER')}/{task}/training")
 
+# TODO: task is for example the inversion of a list, what is running_mode?
 if task not in [
     "count",
     "inverse",
@@ -41,8 +63,10 @@ if task not in [
 
 prompting = GeneticPrompting()
 
+# problem description - what are we going to do
 description = prompting.get_problem_description(task)
 
+# select initial set of programs - what functions are needed to solve this above problem description
 population = prompting.get_problem_programs(description)
 
 if running_mode == "initial":
@@ -53,15 +77,18 @@ if running_mode == "initial":
 
 s = simulator.Runner(f"{os.getenv('DATA_FOLDER')}/{task}/training")
 
+# get population with GP
 population += get_population(population_size)
 
+# programs and fit score
 population = list(zip(population, s.run(population)))
 
 print(population)
 
 print(sorted(population, key=lambda x: x[1], reverse=True)[:5])
 
-for i in tqdm(range(1500)):
+# why 1500
+for i in tqdm(range(10)):
     print(f"Epoch {i}")
 
     mutations = prompting.get_guided_mutation_programs(
@@ -112,7 +139,7 @@ for i in tqdm(range(1500)):
             elitism_individual = individual
         else:
             break
-
+    # TODO: Should some of the constants here be set in a config file?
     population = selStochasticUniversalSampling(
         [
             individual

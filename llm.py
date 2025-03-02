@@ -74,6 +74,7 @@ class Qwen(LLMModel):
             torch_dtype=torch.float16,
             device_map="cuda",
             quantization_config=bnb_config,
+            use_sliding_window=False
         )
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
 
