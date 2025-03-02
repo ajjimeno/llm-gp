@@ -15,15 +15,6 @@ os.environ['PYTHONPATH'] = f"{gp_path}:{current_path}"
 # Also add to sys.path for the current process
 sys.path.insert(0, gp_path)
 
-# print(os.getcwd())
-# path = os.getenv('DATA_FOLDER')
-# print(f"{path}")
-# task = os.getenv("RUNNING_TASK")
-# with open(f"{path}/{task}/training/sorted-0.txt", "r") as f:
-#     data = f.read()
-
-# print(f"{data}")
-
 import SimulatorCPU as simulator
 from deap import gp
 from dotenv import load_dotenv
@@ -48,8 +39,6 @@ task = os.getenv("RUNNING_TASK")
 running_mode = os.getenv("RUNNING_MODE")
 
 print(f"Task: {task}, running_mode = {running_mode}")
-s = simulator.Runner(f"{os.getenv('DATA_FOLDER')}/{task}/training")
-
 # TODO: task is for example the inversion of a list, what is running_mode?
 if task not in [
     "count",
