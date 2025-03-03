@@ -148,7 +148,7 @@ class GeneticPrompting:
         problem_description = (
             """
             Given the following examples, one per line, that show training input and output examples of a program as lists.
-            Each example has several instances in which the program does the same thing to write the output list base on the input list.
+            Each example has several instances in which the program does the same thing to write the output list based on the input list.
             Across examples, the action done to write the output list does not need to be the same.
 
             The training examples include different tasks and the program identifies them and decides what actions need to be taken on the output list.
@@ -177,8 +177,13 @@ class GeneticPrompting:
         count = 0
 
         population = []
-
-        while count < 80:
+        # TODO: shold we parameterise this constant in the config
+        max_count = 80
+        pbar = tqdm(total=max_count)
+        
+        while count < max_count:
+            pbar.update(1)
+            pbar.set_description(f"obtaining problem program {count} of {max_count}")
             try:
                 output = self.model(
                     system_prompt=system_prompt,

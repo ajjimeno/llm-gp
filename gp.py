@@ -5,6 +5,16 @@ import os
 import random
 import sys
 
+gp_path = os.path.join(os.path.realpath(os.path.dirname(__file__)), '../gp')
+# Get the current PYTHONPATH (if any)
+current_path = os.environ.get('PYTHONPATH', '')
+
+# Add new path to PYTHONPATH environment variable
+os.environ['PYTHONPATH'] = f"{gp_path}:{current_path}"
+
+# Also add to sys.path for the current process
+sys.path.insert(0, gp_path)
+
 import SimulatorCPU as simulator
 from deap import gp
 from dotenv import load_dotenv
@@ -18,6 +28,8 @@ from programs_check import (
     toolbox,
 )
 from prompts import GeneticPrompting
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, current_dir)
 from selection import selStochasticUniversalSampling
 
 load_dotenv()
