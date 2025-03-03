@@ -13,7 +13,7 @@ from tqdm import tqdm
 from initial_population import get_population
 from programs_check import (
     check_programs,
-    get_program_length,
+    check_program_length,
     get_valid_program,
     toolbox,
 )
@@ -102,7 +102,7 @@ if __name__ == "__main__":
             [
                 individual
                 for individual in population
-                if get_program_length(individual[0]) < min_max_length + 25
+                if check_program_length(individual[0], min_max_length + 25)
             ],
             k=population_size,
         )

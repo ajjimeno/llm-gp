@@ -49,5 +49,8 @@ def check_programs(programs) -> list[str]:
     ]
 
 
-def get_program_length(program):
-    return len(creator.Individual.from_string(program, pset))
+def check_program_length(program, max_length):
+    try:
+        return len(creator.Individual.from_string(program, pset)) < max_length
+    except:
+        False
