@@ -1,8 +1,11 @@
+import logging
 import operator
 
 import gp_algorithm
 from deap import base, creator, gp
 from runner import Runner, set_pset
+
+logger = logging.getLogger(__name__)
 
 runner = Runner()
 pset = set_pset(runner, is_arc=False)
@@ -49,8 +52,13 @@ def check_programs(programs) -> list[str]:
     ]
 
 
+def get_program_length(program):
+    return len(creator.Individual.from_string(program, pset))
+
+
 def check_program_length(program, max_length):
     try:
-        return len(creator.Individual.from_string(program, pset)) < max_length
-    except:
-        False
+        return get_program_length(program) < max_length
+    except Exception as e:
+        logger.error(f"Error checking program length: {e} / {program}")
+        return False

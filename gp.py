@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from initial_population import get_population
 from programs_check import (
-    check_programs,
+    get_program_length,
     check_program_length,
     get_valid_program,
     toolbox,
