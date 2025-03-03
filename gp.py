@@ -22,8 +22,8 @@ from tqdm import tqdm
 
 from initial_population import get_population
 from programs_check import (
-    check_programs,
     get_program_length,
+    check_program_length,
     get_valid_program,
     toolbox,
 )
@@ -33,6 +33,10 @@ sys.path.insert(0, current_dir)
 from selection import selStochasticUniversalSampling
 
 load_dotenv()
+
+
+def str2bool(value) -> bool:
+    return value.lower() == "true"
 
 
 def get_top_individual(population):
@@ -63,8 +67,14 @@ if __name__ == "__main__":
     mutation_probability = float(os.getenv("MUTATION_PROBABILITY", 0.50))
     crossover_probability = float(os.getenv("CROSSOVER_PROBABILITY", 0.50))
 
-    llm_mutation_probability = float(os.getenv("LLM_MUTATION_PROBABILITY", 0.99))
-    llm_elite_mutation = bool(os.getenv("LLM_ELITE_MUTATION", True))
+    llm_population_generation = str2bool(os.getenv("LLM_POPULATION_GENERATION", True))
+
+    if llm_population_generation:
+        llm_mutation_probability = float(os.getenv("LLM_MUTATION_PROBABILITY", 0.99))
+        llm_elite_mutation = str2bool(os.getenv("LLM_ELITE_MUTATION", True))
+    else:
+        llm_mutation_probability = 1.0
+        llm_elite_mutation = False
 
     task = os.getenv("RUNNING_TASK")
     running_mode = os.getenv("RUNNING_MODE")
@@ -81,17 +91,20 @@ if __name__ == "__main__":
     ] or running_mode not in ["full", "initial"]:
         raise ValueError("Revise task and running mode")
 
-    prompting = GeneticPrompting()
+    population = []
 
-    description = prompting.get_problem_description(task)
+    if llm_population_generation:
+        prompting = GeneticPrompting()
 
-    population = prompting.get_problem_programs(description)
+        description = prompting.get_problem_description(task)
 
-    if running_mode == "initial":
-        with open(f"programs-{task}-{datetime.datetime.now()}.txt", "w") as f:
-            json.dump(population, f)
+        population = prompting.get_problem_programs(description)
 
-        sys.exit(0)
+        if running_mode == "initial":
+            with open(f"programs-{task}-{datetime.datetime.now()}.txt", "w") as f:
+                json.dump(population, f)
+
+            sys.exit(0)
 
     s = simulator.Runner(f"{os.getenv('DATA_FOLDER')}/{task}/training")
 
@@ -114,7 +127,7 @@ if __name__ == "__main__":
             [
                 individual
                 for individual in population
-                if get_program_length(individual[0]) < min_max_length + 25
+                if check_program_length(individual[0], min_max_length + 25)
             ],
             k=population_size,
         )
