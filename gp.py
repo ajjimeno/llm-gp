@@ -28,6 +28,8 @@ from programs_check import (
     toolbox,
 )
 from prompts import GeneticPrompting
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, current_dir)
 from selection import selStochasticUniversalSampling
 
 load_dotenv()
