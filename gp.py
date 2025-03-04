@@ -74,11 +74,11 @@ if __name__ == "__main__":
     mutation_probability = float(os.getenv("MUTATION_PROBABILITY", 0.50))
     crossover_probability = float(os.getenv("CROSSOVER_PROBABILITY", 0.50))
 
-    llm_population_generation = str2bool(os.getenv("LLM_POPULATION_GENERATION", True))
+    llm_population_generation = str2bool(os.getenv("LLM_POPULATION_GENERATION", "False"))
 
     if llm_population_generation:
         llm_mutation_probability = float(os.getenv("LLM_MUTATION_PROBABILITY", 0.99))
-        llm_elite_mutation = str2bool(os.getenv("LLM_ELITE_MUTATION", True))
+        llm_elite_mutation = str2bool(os.getenv("LLM_ELITE_MUTATION", "False"))
     else:
         llm_mutation_probability = 1.0
         llm_elite_mutation = False
@@ -132,6 +132,10 @@ if __name__ == "__main__":
         logger.info(
             f"Epoch|{epoch}|population_height|{population_height_statistics(population)}"
         )
+
+        with open("programs.txt", "w") as f:
+            for individual in population:
+                print(str(individual), file=f)
 
         population = [
             (PrimitiveTree(program), score)
