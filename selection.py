@@ -1,7 +1,10 @@
+from logger_config import getLogger
 import math
 import random
 
 import numpy as np
+
+logger = getLogger(__name__)
 
 
 def selStochasticUniversalSampling(individuals, k):
@@ -27,7 +30,7 @@ def selStochasticUniversalSampling(individuals, k):
     distance = sum_fits / float(k)
     start = random.uniform(0, distance)
 
-    print(
+    logger.info(
         f"max: {np.max(fits)} min: {np.min(fits)} sum: {sum_fits} distance: {distance} start: {start}"
     )
 
