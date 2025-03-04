@@ -5,12 +5,12 @@ import os
 import random
 import sys
 
-gp_path = os.path.join(os.path.realpath(os.path.dirname(__file__)), '../gp')
+gp_path = os.path.join(os.path.realpath(os.path.dirname(__file__)), "../gp")
 # Get the current PYTHONPATH (if any)
-current_path = os.environ.get('PYTHONPATH', '')
+current_path = os.environ.get("PYTHONPATH", "")
 
 # Add new path to PYTHONPATH environment variable
-os.environ['PYTHONPATH'] = f"{gp_path}:{current_path}"
+os.environ["PYTHONPATH"] = f"{gp_path}:{current_path}"
 
 # Also add to sys.path for the current process
 sys.path.insert(0, gp_path)
@@ -28,6 +28,7 @@ from programs_check import (
     toolbox,
 )
 from prompts import GeneticPrompting
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_dir)
 from selection import selStochasticUniversalSampling
@@ -107,6 +108,7 @@ if __name__ == "__main__":
             sys.exit(0)
 
     s = simulator.Runner(f"{os.getenv('DATA_FOLDER')}/{task}/training")
+    s_testing = simulator.Runner(f"{os.getenv('DATA_FOLDER')}/{task}/testing")
 
     population += get_population(population_size)
 
@@ -118,8 +120,8 @@ if __name__ == "__main__":
 
     elitism_individual = None
 
-    for i in tqdm(range(1500)):
-        print(f"Epoch {i}")
+    for epoch in tqdm(range(1500)):
+        print(f"Epoch {epoch}")
 
         min_max_length, elitism_individual = get_top_individual(population)
 
@@ -132,7 +134,9 @@ if __name__ == "__main__":
             k=population_size,
         )
 
-        print(f"Top: {elitism_individual}")
+        print(
+            f"Epoch|{epoch}|Top|{elitism_individual[0]}|Training|{elitism_individual[1]}|Testing|{s_testing.run([elitism_individual[0]])[0]}"
+        )
 
         with open("programs.txt", "w") as f:
             for individual in population:
