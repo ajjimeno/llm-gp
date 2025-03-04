@@ -9,7 +9,8 @@ from tqdm import tqdm
 
 from dataset import get_training_examples
 from llm import get_model
-from programs_check import check_programs, get_valid_program
+from programs_check import check_programs, get_primitive_tree, get_valid_program
+
 
 load_dotenv()
 
@@ -180,7 +181,7 @@ class GeneticPrompting:
         # TODO: shold we parameterise this constant in the config
         max_count = 80
         pbar = tqdm(total=max_count)
-        
+
         while count < max_count:
             pbar.update(1)
             pbar.set_description(f"obtaining problem program {count} of {max_count}")
@@ -248,7 +249,7 @@ class GeneticPrompting:
             count += 1
             print(f"Trying again {count}")
 
-        return list(set(population))
+        return [get_primitive_tree(individual) for individual in set(population)]
 
     def _get_mutation_prompt(self, individual):
         return f"""
@@ -321,6 +322,7 @@ class GeneticPrompting:
 
     def get_guided_mutation_program(self, description, individual):
         try:
+            individual = (str(individual[0]), individual[1])
             new_program = self._get_guided_mutation_program(description, individual)
             return new_program
         except Exception as e:
@@ -342,7 +344,7 @@ class GeneticPrompting:
             print(f"Failed program: {program}")
             return individual[0]
 
-        return str(byte_program)
+        return program
 
     def get_guided_mutation_programs(self, description, population, probability=0.95):
         return [
