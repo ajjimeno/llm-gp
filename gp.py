@@ -3,7 +3,11 @@ import json
 from logger_config import getLogger
 import os
 import random
-from statistics import population_length_statistics, population_performance_statistics
+from statistics import (
+    population_height_statistics,
+    population_length_statistics,
+    population_performance_statistics,
+)
 import sys
 
 gp_path = os.path.join(os.path.realpath(os.path.dirname(__file__)), "../gp")
@@ -123,6 +127,10 @@ if __name__ == "__main__":
         )
         logger.info(
             f"Epoch|{epoch}|population_length|{population_length_statistics(population)}"
+        )
+
+        logger.info(
+            f"Epoch|{epoch}|population_height|{population_height_statistics(population)}"
         )
 
         population = [
