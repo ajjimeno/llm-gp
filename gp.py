@@ -86,6 +86,7 @@ if __name__ == "__main__":
     task = os.getenv("RUNNING_TASK")
 
     logger.info(json.dumps(dotenv_values()))
+    logger.info(task)
 
     if task not in [
         "count",
@@ -158,7 +159,6 @@ if __name__ == "__main__":
                 individual2, _ = population[i + 1]
 
                 program1, program2 = toolbox.mate(individual1, individual2)
-                print(program1, program2)
 
                 population[i] = (program1, s.run([program1])[0])
                 population[i + 1] = (program2, s.run([program2])[0])
