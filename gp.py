@@ -1,8 +1,9 @@
 import datetime
-import itertools
 import json
+from logger_config import getLogger
 import os
 import random
+from statistics import population_length_statistics, population_performance_statistics
 import sys
 
 gp_path = os.path.join(os.path.realpath(os.path.dirname(__file__)), "../gp")
@@ -16,8 +17,9 @@ os.environ["PYTHONPATH"] = f"{gp_path}:{current_path}"
 sys.path.insert(0, gp_path)
 
 import SimulatorCPU as simulator
-from deap import gp
-from dotenv import load_dotenv
+
+# from deap import gp
+from dotenv import dotenv_values, load_dotenv
 from tqdm import tqdm
 
 from initial_population import get_population
@@ -63,6 +65,8 @@ def get_top_individual(population):
 
 if __name__ == "__main__":
 
+    logger = getLogger(__name__)
+
     population_size = int(os.getenv("POPULATION_SIZE", 300))
 
     mutation_probability = float(os.getenv("MUTATION_PROBABILITY", 0.50))
@@ -80,7 +84,7 @@ if __name__ == "__main__":
     task = os.getenv("RUNNING_TASK")
     running_mode = os.getenv("RUNNING_MODE")
 
-    print(f"Task: {task}, running_mode = {running_mode}")
+    logger.info(json.dumps(dotenv_values()))
 
     if task not in [
         "count",
@@ -114,16 +118,27 @@ if __name__ == "__main__":
 
     population = list(zip(population, s.run(population)))
 
-    print(population)
+    logger.info(population)
 
-    print(sorted(population, key=lambda x: x[1], reverse=True)[:5])
+    logger.info(sorted(population, key=lambda x: x[1], reverse=True)[:5])
 
     elitism_individual = None
 
     for epoch in tqdm(range(1500)):
-        print(f"Epoch {epoch}")
+        logger.info(f"Epoch {epoch}")
 
         min_max_length, elitism_individual = get_top_individual(population)
+
+        logger.info(
+            f"Epoch|{epoch}|Top|{elitism_individual[0]}|Training|{elitism_individual[1]}|Testing|{s_testing.run([elitism_individual[0]])[0]}"
+        )
+
+        logger.info(
+            f"Epoch|{epoch}|population_performance|{population_performance_statistics(population)}"
+        )
+        logger.info(
+            f"Epoch|{epoch}|population_length|{population_length_statistics(population)}"
+        )
 
         population = selStochasticUniversalSampling(
             [
@@ -132,10 +147,6 @@ if __name__ == "__main__":
                 if check_program_length(individual[0], min_max_length + 25)
             ],
             k=population_size,
-        )
-
-        print(
-            f"Epoch|{epoch}|Top|{elitism_individual[0]}|Training|{elitism_individual[1]}|Testing|{s_testing.run([elitism_individual[0]])[0]}"
         )
 
         with open("programs.txt", "w") as f:
