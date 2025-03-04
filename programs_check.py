@@ -2,7 +2,7 @@ import logging
 import operator
 
 import gp_algorithm
-from deap import base, creator, gp
+from deap import base, creator, gp, tools
 from runner import Runner, set_pset
 
 logger = logging.getLogger(__name__)
@@ -21,6 +21,10 @@ toolbox.register("expr_mut", gp.genGrow, min_=0, max_=2)
 
 toolbox.register("mutate", gp.mutUniform, expr=toolbox.expr_mut, pset=pset)
 
+
+toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
+toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+
 """
 Koza, J. R. (1992). Genetic Programming: On the Pro-
 gramming of Computers by Means of Natural Selection.
@@ -36,9 +40,13 @@ toolbox.decorate(
 )  # 17, default, 30 most of tests
 
 
+def get_primitive_tree(program) -> gp_algorithm.PrimitiveTree:
+    return creator.Individual.from_string(program, pset)
+
+
 def get_valid_program(program) -> bool:
     try:
-        return creator.Individual.from_string(program, pset)
+        return get_primitive_tree(program)
     except Exception as e:
         print(e, program)
         return None
@@ -50,15 +58,3 @@ def check_programs(programs) -> list[str]:
         for p in programs
         if get_valid_program(p)
     ]
-
-
-def get_program_length(program):
-    return len(creator.Individual.from_string(program, pset))
-
-
-def check_program_length(program, max_length):
-    try:
-        return get_program_length(program) < max_length
-    except Exception as e:
-        logger.error(f"Error checking program length: {e} / {program}")
-        return False

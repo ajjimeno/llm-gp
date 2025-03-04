@@ -23,7 +23,7 @@ def selStochasticUniversalSampling(individuals, k):
     This function uses the :func:`~random.uniform` function from the python base
     :mod:`random` module.
     """
-    fits = [math.exp(ind[1] * 50) - 1 for ind in individuals]
+    fits = [math.exp(score * 50) - 1 for _, score in individuals]
 
     sum_fits = sum(fits)
 

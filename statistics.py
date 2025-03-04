@@ -1,12 +1,15 @@
 import numpy as np
-from programs_check import get_program_length
+
+
+def _population_statistics(values):
+    return f"min|{np.min(values)}|max|{np.max(values)}|mean|{np.mean(values)}|std|{np.std(values)}"
 
 
 def population_length_statistics(population):
-    lengths = [get_program_length(individual[0]) for individual in population]
-    return f"min|{np.min(lengths)}|max|{np.max(lengths)}|mean|{np.mean(lengths)}|std|{np.std(lengths)}"
+    lengths = [len(program) for program, _ in population]
+    return _population_statistics(lengths)
 
 
 def population_performance_statistics(population):
-    performance = [individual[1] for individual in population]
-    return f"min|{np.min(performance)}|max|{np.max(performance)}|mean|{np.mean(performance)}|std|{np.std(performance)}"
+    fitness_scores = [fitness for _, fitness in population]
+    return _population_statistics(fitness_scores)
