@@ -65,6 +65,25 @@ def get_top_individual(population):
     return min_max_length, elitism_individual
 
 
+def evaluate_population(population, simulator):
+    negative_indices = [
+        i for i, (program, score) in enumerate(population) if score == -1
+    ]
+    negative_individuals = [
+        program for _, (program, score) in enumerate(population) if score == -1
+    ]
+
+    if not negative_individuals:
+        return population
+
+    updated_values = simulator.run(negative_individuals)
+
+    for i, new_value in zip(negative_indices, updated_values):
+        population[i] = (population[i][0], new_value)
+
+    return population
+
+
 if __name__ == "__main__":
 
     logger = getLogger(__name__)
@@ -74,7 +93,9 @@ if __name__ == "__main__":
     mutation_probability = float(os.getenv("MUTATION_PROBABILITY", 0.50))
     crossover_probability = float(os.getenv("CROSSOVER_PROBABILITY", 0.50))
 
-    llm_population_generation = str2bool(os.getenv("LLM_POPULATION_GENERATION", "False"))
+    llm_population_generation = str2bool(
+        os.getenv("LLM_POPULATION_GENERATION", "False")
+    )
 
     if llm_population_generation:
         llm_mutation_probability = float(os.getenv("LLM_MUTATION_PROBABILITY", 0.99))
@@ -160,8 +181,8 @@ if __name__ == "__main__":
 
                 program1, program2 = toolbox.mate(individual1, individual2)
 
-                population[i] = (program1, s.run([program1])[0])
-                population[i + 1] = (program2, s.run([program2])[0])
+                population[i] = (program1, -1)
+                population[i + 1] = (program2, -1)
 
         for i in tqdm(range(len(population))):
             if random.random() > mutation_probability:
@@ -169,7 +190,9 @@ if __name__ == "__main__":
 
                 (new_program,) = toolbox.mutate(individual)
 
-                population[i] = (new_program, s.run([new_program])[0])
+                population[i] = (new_program, -1)
+
+        evaluate_population(population, s)
 
         for i in tqdm(range(len(population))):
             if random.random() > llm_mutation_probability:
