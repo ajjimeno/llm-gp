@@ -144,16 +144,12 @@ if __name__ == "__main__":
             f"Epoch|{epoch}|Top|{elitism_individual[0]}|Length|{len(elitism_individual[0])}|Height|{elitism_individual[0].height}|Training|{elitism_individual[1]}|Testing|{s_testing.run([elitism_individual[0]])[0]}"
         )
 
-        logger.info(
-            f"Epoch|{epoch}|population_performance|{population_performance_statistics(population)}"
-        )
-        logger.info(
-            f"Epoch|{epoch}|population_length|{population_length_statistics(population)}"
-        )
-
-        logger.info(
-            f"Epoch|{epoch}|population_height|{population_height_statistics(population)}"
-        )
+        for function in [
+            population_performance_statistics,
+            population_length_statistics,
+            population_height_statistics,
+        ]:
+            logger.info(f"Epoch|{epoch}|{function(population)}")
 
         with open("programs.txt", "w") as f:
             for individual in population:
