@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 import random
 import re
@@ -9,10 +8,13 @@ from tqdm import tqdm
 
 from dataset import get_training_examples
 from llm import get_model
+from logger_config import getLogger
 from programs_check import check_programs, get_primitive_tree, get_valid_program
 
 
 load_dotenv()
+
+logger = getLogger(__name__)
 
 
 def clean_output(string):
@@ -170,7 +172,7 @@ class GeneticPrompting:
             system_prompt=system_prompt, user_prompt=problem_description
         )
 
-        logging.info(description)
+        logger.info(description)
 
         return description
 
@@ -218,7 +220,7 @@ class GeneticPrompting:
                     + functions,
                 )
 
-                print(output)
+                logger.info(f"Population generation output: {output}")
 
                 output_list = extract_python_code(output, prefix="json")
 
@@ -228,57 +230,24 @@ class GeneticPrompting:
                 if not output_list:
                     output_list = output
 
-                print(output_list)
-
                 population += [
                     e["example"]
                     for e in json.loads(output_list)
                     # if not is_individual_invalid(e["example"])
                 ]
 
-                print(population)
-
                 population = check_programs(population)
-                print(population)
+                logger.info(f"Filtered programs: {population}")
 
                 if len(population) > 30:
                     break
             except Exception as e:
-                print(f"Error: {e}")
+                logger.error(f"Error: {e}")
 
             count += 1
-            print(f"Trying again {count}")
+            logger.info(f"Trying again {count}")
 
         return [get_primitive_tree(individual) for individual in set(population)]
-
-    def _get_mutation_prompt(self, individual):
-        return f"""
-
-    Write a new function using the following function, the explanation of the task, and the primitive specification below to build the function tree, do not add any number or primitive that is not mentioned in the list of valid primitives.
-    The function is expressed as a tree structure using parenthesis, without any python code.
-    
-    A mutation is defined as the following steps:
-    
-    1. build the tree of the function
-    2. analyze the tree branches with respect to the description of the task
-    3. identify one of the subtrees that might underperform for the task in hand
-    4. create a new valid subtree using the available primitives and valid primitive arguments and replace the identified subtree
-    
-    Use number {random.randint(0,9999999)} as random seed for the generation of the mutation.
-    The mutation can be inspired by the function evaluation score and the the description of the task mentioned below.
-    If something is strange, consider adding functions that check the training data for action to be done on the testing output list.
-
-    This is the input function that has to be mutated. Build the tree and replace one of the subtrees.
-    
-    {individual}
-
-    No other python code or function should be added than the function.
-    Just output the mutated function.
-    Review the new function, so it is fully compliant with the functions.
-    Try to balance training and testing functions and combine functions for present in the input function.
-
-    {functions}
-    """
 
     def _get_guided_mutation_prompt(self, description, individual, score):
         return (
@@ -325,7 +294,7 @@ class GeneticPrompting:
             individual = (str(individual[0]), individual[1])
             new_program = self._get_guided_mutation_program(description, individual)
             return new_program
-        except Exception as e:
+        except Exception:
             return individual[0]
 
     def _get_guided_mutation_program(self, description, individual):
@@ -341,107 +310,11 @@ class GeneticPrompting:
         byte_program = get_valid_program(program)
 
         if not byte_program:
-            print(f"Failed program: {program}")
+            logger.info(f"Failed program: {program}")
             return individual[0]
 
+        logger.info(f"Generated program: {program}")
         return program
-
-    def get_guided_mutation_programs(self, description, population, probability=0.95):
-        return [
-            clean_output(
-                self.model(
-                    system_prompt=system_prompt,
-                    user_prompt=self._get_guided_mutation_prompt(
-                        description, individual[0], individual[1]
-                    ),
-                )
-            )
-            for individual in tqdm(population, position=0, leave=True)
-            if random.random() > probability
-        ]
-
-    def _get_x_over_prompt(self, individual1, individual2):
-        return f"""
-    Write a crossover function using the two functions below and build a new function tree, do not add any number or function that is not mentioned in the list of valid functions.
-    Use this number {random.randint(0,9999999)} as random seed for the generation of the crossover. 
-
-    The functions are expressed as a tree structure using parenthesis, without any python code.
-    {individual1}
-
-    {individual2}
-    No other python code or function should be added than the function.
-    Just output the cross over function.
-    Review the new function and the output, so it is fully compliant with the valid functions.
-
-    {functions}
-    """
-
-    def _get_guided_x_over_prompt(
-        self, description, individual1, score1, individual2, score2
-    ):
-        return (
-            f"""
-    Write a crossover function using the two functions below and build a new function tree, do not add any number or function that is not mentioned in the list of valid functions.
-    Use this number {random.randint(0,9999999)} as random seed for the generation of the crossover. 
-    The functions are expressed as a tree structure using parenthesis, without any python code.
-
-    This is the first function:
-
-    {individual1}
-
-    This is the second function:
-
-    {individual2}
-
-    Each function is evaluated against their performance on the test set with float values from 0 to 1.
-    The firstfunction above has a score of {score1} and the second has a score of {score2}.
-
-    No other python code or function should be added than the function.
-    Just output the cross over function.
-    Review the new function and the output, so it is fully compliant with the valid functions.
-
-    {functions}
-
-    The task has the following description, which can be used to guide the crossover of the functions to get a higher score.
-
-    <explanation>
-    """
-            + description
-            + """
-    </explanation>
-    """
-        )
-
-    """
-    def _get_guided_x_over_programs(self, description, individual1, individual2):
-        program1, program2 = clean_output(self.model(
-                    system_prompt=system_prompt,
-                    user_prompt=self._get_guided_x_over_prompt(
-                        description, p1[0], p1[1], p2[0], p2[1]
-                    ),
-                )
-            )
-            for p1, p2 in tqdm(
-                list(zip(population[1:], population[0:-1])), position=0, leave=True
-            )
-            if random.random() > probability
-    """
-
-    def get_guided_x_over_programs(self, description, population, probability=0.95):
-        return [
-            clean_output(
-                self.model(
-                    system_prompt=system_prompt,
-                    user_prompt=self._get_guided_x_over_prompt(
-                        description, p1[0], p1[1], p2[0], p2[1]
-                    ),
-                )
-            )
-            for p1, p2 in tqdm(
-                list(zip(population[1:], population[0:-1])), position=0, leave=True
-            )
-            if random.random() > probability
-        ]
 
 
 if __name__ == "__main__":
