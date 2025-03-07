@@ -5,3 +5,9 @@ transformers
 torch
 bitsandbytes
 accelerate
+scipy
+flash-attn
+onnx
+onnxruntime-gpu
+transformers-onnx
+optimum

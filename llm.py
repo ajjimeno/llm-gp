@@ -6,7 +6,11 @@ import torch
 from dotenv import load_dotenv
 from openai import OpenAI
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
-
+import importlib.util
+from optimum.onnxruntime import ORTModelForCausalLM
+from optimum.exporters.onnx import main_export
+from pathlib import Path
+import tempfile
 load_dotenv()
 
 
@@ -22,6 +26,122 @@ def get_model(model_name: Literal["qwen", "deepseek"] = "qwen") -> int:
 
 
 class LLMModel(ABC):
+
+    def __init__(self):
+        self.model_name = None
+        self.model = None
+        self.tokenizer = None
+        self.bnb_config = None
+        self.attn = None
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.do_sampling = False # use the model default as the default here
+        self.onnx_path = Path("./onnx_model")
+
+    def check_flash_att_compatibility(self) -> bool:
+        """
+        Check if flash_attention can be used, otherwise default to sdpa
+        Args:
+        Returns:
+            bool value indicating if flash_attn can be used
+        """
+
+        if not torch.cuda.is_available():
+            print("No GPU available, defaulting to CPU")
+            return False
+
+        if importlib.util.find_spec('flash_attn') is None:
+            print(f"No package flash_attn available for import. Ensure it is installed and try again!")
+            return False
+        
+        gpu_name = torch.cuda.get_device_name()
+        gpu_idx = torch.cuda.current_device()
+        # tuple value representing the minor and major capability of the gpu
+        gpu_capability = torch.cuda.get_device_capability(gpu_idx)
+
+        print(f"The following GPU is available: ")
+        print(f"\tname: {gpu_name}")
+        print(f"\tindex: {gpu_idx}")
+        print(f"\tCapability: {gpu_capability[0]}.{gpu_capability[1]}")
+
+        if gpu_capability[0] >= 8: # ampere=8
+            print("gpu support flash_attn")
+            return True
+        else:
+            print("gpu does not support flash_attn")
+            return False
+        
+    def export_to_onnx(self) -> None:
+        """
+        Export the model to ONNX for faster inference
+        Args:
+            onnx_path: where do we store the ONNX exported model
+        Return:
+            None
+        """
+        
+        
+        os.makedirs(self.onnx_path, exist_ok=True)
+
+        if self.model is not None and self.tokenizer is not None:
+                # Make sure the model is completely moved to CPU
+            # if hasattr(self, 'model'):
+            #     # First unload from GPU
+            # self.model = self.model.cpu()
+                
+            # # Force all parameters to CPU
+            # for param in self.model.parameters():
+            #     param.data = param.data.cpu()
+                
+            # # Force all buffers to CPU
+            # for buffer in self.model.buffers():
+            #     buffer.data = buffer.data.cpu()
+            
+            # Clear CUDA cache
+            torch.cuda.empty_cache()
+            with tempfile.TemporaryDirectory() as tmp_dir:
+
+                # perform onnx conversion on CPU as this is memory intensive
+                # self.model = self.model.cpu()
+                self.model.save_pretrained(tmp_dir)
+                self.tokenizer.save_pretrained(tmp_dir)
+                main_export(
+                    model_name_or_path=tmp_dir,
+                    output=self.onnx_path,
+                    task='text-generation',
+                    opset=14,
+                    device="cpu",  # Use CPU for export
+                    no_post_process=True,  # Skip post-processing to save memory
+                    trust_remote_code=True
+                )
+        else:
+            raise ValueError("Ensure there is a model and a tokenizer loaded, before attempting ONNX conversion")
+
+    def load_model(self, device:str) -> None:
+        """
+        Load a specific LLM model
+
+        Args:
+            device: the device onto which the model should be loaded. For onnx it is cpu
+        """
+
+        if self.model_name is None:
+            raise ValueError("No model name specified, please set attribute model_name")
+        if self.bnb_config is None:
+            print("No quantization mechanism is implemented. To change this set attribute bnb_config")
+        if self.attn is None:
+            print("attention is not specified defaulting to sdpa. To change this set attribute attn")
+            
+        self.model = AutoModelForCausalLM.from_pretrained(
+                self.model_name,
+                torch_dtype=torch.float16,
+                device_map=device,
+                quantization_config=None if self.bnb_config is None else self.bnb_config,
+                use_sliding_window=False,
+                do_sample=self.do_sampling, # but we need to look at accuracy
+                attn_implementation="sdpa" if self.attn is None else self.attn
+            )
+        print(f"Model loaded on {device}")
+
     @abstractmethod
     def __call__(self, system_prompt: str, user_prompt: str) -> str:
         """
@@ -58,25 +178,56 @@ class Qwen(LLMModel):
     def __init__(
         self,
         model_name: Literal[
-        "Qwen/Qwen2.5-Coder-1.5B-Instruct", "Qwen/Qwen2.5-Coder-7B-Instruct"
+        "Qwen/Qwen2.5-Coder-1.5B-Instruct", "Qwen/Qwen2.5-Coder-7B-Instruct", 
     ] = "Qwen/Qwen2.5-Coder-1.5B-Instruct",
         bit_config: Literal["8bit", "4bit", "none"] = "4bit",
+        use_onnx: bool=True
     ):
+        super().__init__()
+
+        self.model_name = model_name
         if bit_config == "8bit":
-            bnb_config = BitsAndBytesConfig(load_in_8bit=True)
+            self.bnb_config = BitsAndBytesConfig(load_in_8bit=True)
         elif bit_config == "4bit":
-            bnb_config = BitsAndBytesConfig(
+            self.bnb_config = BitsAndBytesConfig(
                 load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16
             )
 
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model_name,
-            torch_dtype=torch.float16,
-            device_map="cuda",
-            quantization_config=bnb_config,
-            use_sliding_window=False
-        )
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        if self.check_flash_att_compatibility():
+            print("Flash attention will be used as the attention mechanism")
+            self.attn = "flash_attention_2"
+        else:
+            print("Unable to run on GPU using flash attention, will run on CPU using sdpa attention mechanism")
+            self.attn = "sdpa"
+
+        
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        print(f"self.model = {self.model}")
+        if use_onnx:
+            # load the model directly to CPU to avoid having to move it when converting to onnx
+            
+
+            print("creating a onnx version of the model for inference")
+            
+            # check to see if a onnx directory exists
+            if not os.path.exists(self.onnx_path) and not os.path.exists(os.path.join(self.onnx_path, "model.onnx")):
+                print("here")
+                self.load_model(device="cpu")
+                self.export_to_onnx()
+                self.model.config.save_pretrained(self.onnx_path)
+                
+            else:    
+                # load onnx model onto device
+                print(f"onnx_path = {self.onnx_path}")
+                self.model = ORTModelForCausalLM.from_pretrained(
+                    self.onnx_path,
+                    provider=["CUDAExecutionProvider"] if self.device=='cuda' else ["CPUExecutionProvider"],
+                    library_name="transformers" 
+                )
+
+        else:
+            self.load_model(device=self.device)
+        
 
     def __call__(self, system_prompt, user_prompt) -> str:
         print(user_prompt)
