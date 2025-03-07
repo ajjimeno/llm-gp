@@ -83,20 +83,6 @@ class LLMModel(ABC):
         os.makedirs(self.onnx_path, exist_ok=True)
 
         if self.model is not None and self.tokenizer is not None:
-                # Make sure the model is completely moved to CPU
-            # if hasattr(self, 'model'):
-            #     # First unload from GPU
-            # self.model = self.model.cpu()
-                
-            # # Force all parameters to CPU
-            # for param in self.model.parameters():
-            #     param.data = param.data.cpu()
-                
-            # # Force all buffers to CPU
-            # for buffer in self.model.buffers():
-            #     buffer.data = buffer.data.cpu()
-            
-            # Clear CUDA cache
             torch.cuda.empty_cache()
             with tempfile.TemporaryDirectory() as tmp_dir:
 
@@ -181,7 +167,7 @@ class Qwen(LLMModel):
         "Qwen/Qwen2.5-Coder-1.5B-Instruct", "Qwen/Qwen2.5-Coder-7B-Instruct", 
     ] = "Qwen/Qwen2.5-Coder-1.5B-Instruct",
         bit_config: Literal["8bit", "4bit", "none"] = "4bit",
-        use_onnx: bool=True
+        use_onnx: bool=False
     ):
         super().__init__()
 
