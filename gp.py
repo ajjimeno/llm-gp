@@ -198,7 +198,7 @@ if __name__ == "__main__":
                 )
 
                 if new_program != str(individual[0]):
-                    logger.info(f"Epoch|{epoch}|mutation|{new_program}")
+                    logger.info(f"Epoch|{epoch}|mutation|initial|{str(individual[0])}|mutated|{new_program}")
                     population.append(
                         (get_primitive_tree(new_program), s.run([new_program])[0])
                     )
@@ -209,7 +209,7 @@ if __name__ == "__main__":
             )
 
             if new_program != str(elitism_individual[0]):
-                logger.info(f"Epoch|{epoch}|elite_mutation|{new_program}")
+                logger.info(f"Epoch|{epoch}|elite_mutation|initial|{str(elitism_individual[0])}|mutated|{new_program}")
                 population.append(
                     (get_primitive_tree(new_program), s.run([new_program])[0])
                 )
