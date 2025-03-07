@@ -140,6 +140,14 @@ swap_testing_output_next (): interchanges the current value in the test output l
 testing_output_move_right (): moves the pointer to the list to the right, but does not come back to the initial position if overflown. No value is returned.
 testing_reset_output_position (): sets the position of the pointer to zero. No value is returned.
 
+The following are examples of functions that are incorrect:
+
+1. The one below because testing_output_write does not return any value:
+<example>bigger_thanR(output_read(),testing_output_write(testing_input_min()))</example>
+2. The one below because a result from a training primitive is used in a testing primitive:
+<example>equalW(input_max(),testing_output_read())</example>
+3. The one below uses equalR, when it should use equalW for the training primitives:
+<example>equalR(input_max(),output_read())</example>
 """
 
 
@@ -295,7 +303,7 @@ class GeneticPrompting:
             new_program = self._get_guided_mutation_program(description, individual)
             return new_program
         except Exception:
-            return individual[0]
+            return None
 
     def _get_guided_mutation_program(self, description, individual):
         program = clean_output(
@@ -311,10 +319,10 @@ class GeneticPrompting:
 
         if not byte_program:
             logger.info(f"Failed program: {program}")
-            return individual[0]
+            return None
 
         logger.info(f"Generated program: {program}")
-        return program
+        return str(byte_program)
 
 
 if __name__ == "__main__":
