@@ -29,6 +29,7 @@ class LLMModel(ABC):
         self.model = None
         self.tokenizer = None
         self.bnb_config = None
+        self.awq = None
         self.attn = None
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.do_sampling = False # use the model default as the default here
@@ -100,12 +101,14 @@ class LLMModel(ABC):
             if self.attn != "flash_attention2":
                 os.environ["VLLM_ATTENTION_BACKEND"] = "TORCH_SDPA"
             from vllm import LLM as vLLM, SamplingParams
-            self.model = vLLM(model=self.model_name, 
+            # print(os.getcwd())
+            self.model = vLLM(model="./qwen_model/snapshots/2e1fd397ee46e1388853d2af2c993145b0f1098a", # much faster to download model first
                               tensor_parallel_size=1,
                               device=self.device,
-                              quantization="awq", # Using AWQ (aactivation aware weight quantization) 4-bit quantization
+                              quantization="awq" if self.awq is not None else None, # Using AWQ (activation aware weight quantization) 4-bit quantization
                               dtype="half",
-                              trust_remote_code=True)
+                              trust_remote_code=True,
+                              model_impl="llama" )
             self.vllm_sampling = SamplingParams(
                 temperature=0.7 if hasattr(self, 'do_sampling') and self.do_sampling else 0.0,
                 top_p=0.95 if hasattr(self, 'do_sampling') and self.do_sampling else 1.0,
@@ -170,6 +173,9 @@ class Qwen(LLMModel):
             else:
                 print(f"Unable to run on GPU using flash attention, will run on {self.device} using sdpa attention mechanism")
                 self.attn = "sdpa"
+        else:
+            self.awq = True
+            self.bnb_config = None
 
         
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
@@ -204,6 +210,6 @@ class Qwen(LLMModel):
                     generated_ids, skip_special_tokens=True
                 )[0]
         else:
-            outputs = self.model.generate(text, self.vllm_sampling)
-            response = outputs[0].outputs[0].text
+            outputs = self.model.generate([text], self.vllm_sampling)
+            response = [out.outputs[0].text for out in outputs]
         return response
