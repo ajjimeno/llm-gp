@@ -7,10 +7,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 import importlib.util
-from optimum.onnxruntime import ORTModelForCausalLM
-from optimum.exporters.onnx import main_export
-from pathlib import Path
-import tempfile
+
 load_dotenv()
 
 
@@ -35,12 +32,12 @@ class LLMModel(ABC):
         self.attn = None
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.do_sampling = False # use the model default as the default here
-        self.onnx_path = Path("./onnx_model")
 
     def check_flash_att_compatibility(self) -> bool:
         """
         Check if flash_attention can be used, otherwise default to sdpa
         Args:
+            None
         Returns:
             bool value indicating if flash_attn can be used
         """
@@ -64,67 +61,54 @@ class LLMModel(ABC):
         print(f"\tCapability: {gpu_capability[0]}.{gpu_capability[1]}")
 
         if gpu_capability[0] >= 8: # ampere=8
-            print("gpu support flash_attn")
             return True
         else:
-            print("gpu does not support flash_attn")
             return False
-        
-    def export_to_onnx(self) -> None:
-        """
-        Export the model to ONNX for faster inference
-        Args:
-            onnx_path: where do we store the ONNX exported model
-        Return:
-            None
-        """
-        
-        
-        os.makedirs(self.onnx_path, exist_ok=True)
 
-        if self.model is not None and self.tokenizer is not None:
-            torch.cuda.empty_cache()
-            with tempfile.TemporaryDirectory() as tmp_dir:
-
-                # perform onnx conversion on CPU as this is memory intensive
-                # self.model = self.model.cpu()
-                self.model.save_pretrained(tmp_dir)
-                self.tokenizer.save_pretrained(tmp_dir)
-                main_export(
-                    model_name_or_path=tmp_dir,
-                    output=self.onnx_path,
-                    task='text-generation',
-                    opset=14,
-                    device="cpu",  # Use CPU for export
-                    no_post_process=True,  # Skip post-processing to save memory
-                    trust_remote_code=True
-                )
-        else:
-            raise ValueError("Ensure there is a model and a tokenizer loaded, before attempting ONNX conversion")
-
-    def load_model(self, device:str) -> None:
+    def load_model(self, device:str, vllm: bool) -> None:
         """
         Load a specific LLM model
 
         Args:
             device: the device onto which the model should be loaded. For onnx it is cpu
+            vllm: use of vllm as inference mechanism
         """
 
         if self.model_name is None:
             raise ValueError("No model name specified, please set attribute model_name")
-        if self.bnb_config is None:
-            print("No quantization mechanism is implemented. To change this set attribute bnb_config")
         if self.attn is None:
-            print("attention is not specified defaulting to sdpa. To change this set attribute attn")
+            print("attention is not specified. To change this set attribute attn")
+
+        if not vllm:
+            if self.bnb_config is None:
+                print("No quantization mechanism is implemented. To change this set attribute bnb_config")
+         
+                
+            self.model = AutoModelForCausalLM.from_pretrained(
+                    self.model_name,
+                    torch_dtype=torch.float16,
+                    device_map=device,
+                    quantization_config=None if self.bnb_config is None else self.bnb_config,
+                    use_sliding_window=False,
+                    do_sample=self.do_sampling, # but we need to look at accuracy
+                    attn_implementation="sdpa" if self.attn is None else self.attn
+                )
             
-        self.model = AutoModelForCausalLM.from_pretrained(
-                self.model_name,
-                torch_dtype=torch.float16,
-                device_map=device,
-                quantization_config=None if self.bnb_config is None else self.bnb_config,
-                use_sliding_window=False,
-                do_sample=self.do_sampling, # but we need to look at accuracy
-                attn_implementation="sdpa" if self.attn is None else self.attn
+        else:
+            print(f"using vllm as inference mechanism")
+            if self.attn != "flash_attention2":
+                os.environ["VLLM_ATTENTION_BACKEND"] = "TORCH_SDPA"
+            from vllm import LLM as vLLM, SamplingParams
+            self.model = vLLM(model=self.model_name, 
+                              tensor_parallel_size=1,
+                              device=self.device,
+                              quantization="awq", # Using AWQ (aactivation aware weight quantization) 4-bit quantization
+                              dtype="half",
+                              trust_remote_code=True)
+            self.vllm_sampling = SamplingParams(
+                temperature=0.7 if hasattr(self, 'do_sampling') and self.do_sampling else 0.0,
+                top_p=0.95 if hasattr(self, 'do_sampling') and self.do_sampling else 1.0,
+                max_tokens=1500
             )
         print(f"Model loaded on {device}")
 
@@ -167,10 +151,10 @@ class Qwen(LLMModel):
         "Qwen/Qwen2.5-Coder-1.5B-Instruct", "Qwen/Qwen2.5-Coder-7B-Instruct", 
     ] = "Qwen/Qwen2.5-Coder-1.5B-Instruct",
         bit_config: Literal["8bit", "4bit", "none"] = "4bit",
-        use_onnx: bool=False
+        vllm: bool=True
     ):
         super().__init__()
-
+        self.vllm = vllm
         self.model_name = model_name
         if bit_config == "8bit":
             self.bnb_config = BitsAndBytesConfig(load_in_8bit=True)
@@ -178,41 +162,17 @@ class Qwen(LLMModel):
             self.bnb_config = BitsAndBytesConfig(
                 load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16
             )
-
-        if self.check_flash_att_compatibility():
-            print("Flash attention will be used as the attention mechanism")
-            self.attn = "flash_attention_2"
-        else:
-            print("Unable to run on GPU using flash attention, will run on CPU using sdpa attention mechanism")
-            self.attn = "sdpa"
+        if not self.vllm:
+            if self.check_flash_att_compatibility():
+                print("Flash attention will be used as the attention mechanism")
+                self.attn = "flash_attention_2"
+            else:
+                print(f"Unable to run on GPU using flash attention, will run on {self.device} using sdpa attention mechanism")
+                self.attn = "sdpa"
 
         
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-        print(f"self.model = {self.model}")
-        if use_onnx:
-            # load the model directly to CPU to avoid having to move it when converting to onnx
-            
-
-            print("creating a onnx version of the model for inference")
-            
-            # check to see if a onnx directory exists
-            if not os.path.exists(self.onnx_path) and not os.path.exists(os.path.join(self.onnx_path, "model.onnx")):
-                print("here")
-                self.load_model(device="cpu")
-                self.export_to_onnx()
-                self.model.config.save_pretrained(self.onnx_path)
-                
-            else:    
-                # load onnx model onto device
-                print(f"onnx_path = {self.onnx_path}")
-                self.model = ORTModelForCausalLM.from_pretrained(
-                    self.onnx_path,
-                    provider=["CUDAExecutionProvider"] if self.device=='cuda' else ["CPUExecutionProvider"],
-                    library_name="transformers" 
-                )
-
-        else:
-            self.load_model(device=self.device)
+        self.load_model(device=self.device, vllm=self.vllm)
         
 
     def __call__(self, system_prompt, user_prompt) -> str:
@@ -228,19 +188,21 @@ class Qwen(LLMModel):
         text = self.tokenizer.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True
         )
+        if not self.vllm:
+            model_inputs = self.tokenizer([text], return_tensors="pt").to(self.model.device)
 
-        model_inputs = self.tokenizer([text], return_tensors="pt").to(self.model.device)
+            with torch.no_grad():
+                generated_ids = self.model.generate(**model_inputs, max_new_tokens=1500)
 
-        with torch.no_grad():
-            generated_ids = self.model.generate(**model_inputs, max_new_tokens=1500)
+                generated_ids = [
+                    output_ids[len(input_ids) :]
+                    for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
+                ]
 
-            generated_ids = [
-                output_ids[len(input_ids) :]
-                for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
-            ]
-
-            response = self.tokenizer.batch_decode(
-                generated_ids, skip_special_tokens=True
-            )[0]
-
+                response = self.tokenizer.batch_decode(
+                    generated_ids, skip_special_tokens=True
+                )[0]
+        else:
+            outputs = self.model.generate(text, self.vllm_sampling)
+            response = outputs[0].outputs[0].text
         return response
