@@ -62,7 +62,7 @@ def get_top_individual(population):
                 min_max_length = n_length
                 elitism_individual = individual
 
-    return min_max_length, elitism_individual
+    return min_max_length, elitism_individual 
 
 
 def evaluate_population(population, simulator):
@@ -197,7 +197,10 @@ if __name__ == "__main__":
                     description, individual
                 )
 
-                if new_program != str(individual[0]):
+                if new_program:
+                    logger.info(
+                        f"Epoch|{epoch}|mutation|initial|{str(individual[0])}|mutated|{new_program}"
+                    )
                     population.append(
                         (get_primitive_tree(new_program), s.run([new_program])[0])
                     )
@@ -206,10 +209,14 @@ if __name__ == "__main__":
             new_program = prompting.get_guided_mutation_program(
                 description, elitism_individual
             )
-
-            if new_program != str(elitism_individual[0]):
+        
+            if new_program:
+                logger.info(
+                    f"Epoch|{epoch}|elite_mutation|initial|{str(elitism_individual[0])}|mutated|{new_program}"
+                )
                 population.append(
                     (get_primitive_tree(new_program), s.run([new_program])[0])
                 )
+        
 
         population.append(elitism_individual)

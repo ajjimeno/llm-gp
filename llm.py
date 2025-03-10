@@ -4,16 +4,25 @@ from typing import Literal
 
 import torch
 from dotenv import load_dotenv
+import importlib
 from openai import OpenAI
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 import importlib.util
 
+from logger_config import getLogger
+
 load_dotenv()
+
+logger = getLogger(__name__)
 
 
 def get_model(model_name: Literal["qwen", "deepseek"] = "qwen") -> int:
     if model_name == "qwen":
-        return Qwen()
+        return (
+            Qwen(os.getenv("LLM_MODEL_NAME"))
+            if os.getenv("LLM_MODEL_NAME", None)
+            else Qwen()
+        )
     elif model_name == "deepseek":
         return Openai(
             api_key=os.getenv("LLM_API_KEY"), api_url=os.getenv("LLM_API_URL")
@@ -94,6 +103,7 @@ class LLMModel(ABC):
                     do_sample=self.do_sampling, # but we need to look at accuracy
                     attn_implementation="sdpa" if self.attn is None else self.attn
                 )
+            logger.info(f"Qwen|HF|{self.model_name}|{self.bnb_config}")
             
         else:
             print(f"using vllm as inference mechanism")
@@ -114,6 +124,8 @@ class LLMModel(ABC):
                 top_p=0.95 if hasattr(self, 'do_sampling') and self.do_sampling else 1.0,
                 max_tokens=1500
             )
+            logger.info(f"Qwen|HF|{self.model_name}|{self.awq}")
+            
         print(f"Model loaded on {device}")
 
     @abstractmethod
@@ -129,6 +141,39 @@ class LLMModel(ABC):
             str: The processed result.
         """
         pass
+
+    def check_flash_att_compatibility(self) -> bool:
+        """
+        Check if flash_attention can be used, otherwise default to sdpa
+        Args:
+        Returns:
+            bool value indicating if flash_attn can be used
+        """
+
+        if not torch.cuda.is_available():
+            print("No GPU available, defaulting to CPU")
+            return False
+
+        if importlib.util.find_spec('flash_attn') is None:
+            print(f"No package flash_attn available for import. Ensure it is installed and try again!")
+            return False
+
+        gpu_name = torch.cuda.get_device_name()
+        gpu_idx = torch.cuda.current_device()
+        # tuple value representing the minor and major capability of the gpu
+        gpu_capability = torch.cuda.get_device_capability(gpu_idx)
+
+        print(f"The following GPU is available: ")
+        print(f"\tname: {gpu_name}")
+        print(f"\tindex: {gpu_idx}")
+        print(f"\tCapability: {gpu_capability[0]}.{gpu_capability[1]}")
+
+        if gpu_capability[0] >= 8: # ampere=8
+            print("gpu support flash_attn")
+            return True
+        else:
+            print("gpu does not support flash_attn")
+            return False
 
 
 class Openai(LLMModel):
@@ -152,8 +197,8 @@ class Qwen(LLMModel):
     def __init__(
         self,
         model_name: Literal[
-        "Qwen/Qwen2.5-Coder-1.5B-Instruct", "Qwen/Qwen2.5-Coder-7B-Instruct", 
-    ] = "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+            "Qwen/Qwen2.5-Coder-1.5B-Instruct", "Qwen/Qwen2.5-Coder-7B-Instruct"
+        ] = "Qwen/Qwen2.5-Coder-1.5B-Instruct",
         bit_config: Literal["8bit", "4bit", "none"] = "4bit",
         vllm: bool=True
     ):
