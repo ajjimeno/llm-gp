@@ -96,6 +96,7 @@ class LLMModel(ABC):
             
         else:
             print(f"using vllm as inference mechanism")
+            # no parameter to pass to vLLM and thus set it in the environment
             if self.attn != "flash_attention2":
                 os.environ["VLLM_ATTENTION_BACKEND"] = "TORCH_SDPA"
             from vllm import LLM as vLLM, SamplingParams
