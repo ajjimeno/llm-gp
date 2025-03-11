@@ -298,12 +298,17 @@ class GeneticPrompting:
         )
 
     def get_guided_mutation_program(self, description, individual):
-        try:
-            individual = (str(individual[0]), individual[1])
-            new_program = self._get_guided_mutation_program(description, individual)
-            return new_program
-        except Exception:
-            return None
+        count = 0
+
+        individual = (str(individual[0]), individual[1])
+        while count < 5:
+            try:
+                new_program = self._get_guided_mutation_program(description, individual)
+                return new_program
+            except Exception:
+                count += 1
+
+        return None
 
     def _get_guided_mutation_program(self, description, individual):
         program = clean_output(
@@ -319,7 +324,7 @@ class GeneticPrompting:
 
         if not byte_program:
             logger.info(f"Failed program: {program}")
-            return None
+            raise ValueError(program)
 
         logger.info(f"Generated program: {program}")
         return str(byte_program)
