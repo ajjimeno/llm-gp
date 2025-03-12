@@ -156,25 +156,27 @@ class GeneticPrompting:
         self.model = get_model(model_name=os.getenv("LLM_NAME"))
 
     def get_problem_description(self, task):
-        problem_description = (
-            """
-            Given the following examples, one per line, that show training input and output examples of a program as lists.
-            Each example has several instances in which the program does the same thing to write the output list based on the input list.
-            Across examples, the action done to write the output list does not need to be the same.
+        problem_description = f"""
+**Task:** Analyze the following training and testing input-output list examples to determine the underlying transformation rules.
 
-            The training examples include different tasks and the program identifies them and decides what actions need to be taken on the output list.
-            The test example will have a training set that will be used to decide what action to take on the test list.
+**Format:** List of lists with dictionaries that represent examples: `[input_list] -> [output_list]`
 
-            Identify a complete explanation that solves all the examples, considering that there might be more than one explanation, e.g. some examples might select odd numbers and other even numbers from the input list.
-            Some examples might require doing the opposite of other examples, identify edge cases and make sure you have an explanation for them.
-            Write more than one proposal explanation if needed.
-            Before generating any explanation, revise your understanding of the problem with all the examples.
+**Constraints:**
 
-            <examples>
-            """
-            + get_training_examples(task)
-            + "</examples>"
-        )
+* The transformation rule may vary across examples, but it is similar.
+* Within a single example, the rule is consistently applied.
+* Identify patterns, including those that select, modify, or rearrange elements.
+* Provide a detailed explanation of the transformation rule(s) for each example, and a general explanation of all the examples.
+* Provide multiple possible explanations if the data permits.
+
+**Examples:**
+
+{get_training_examples(task)}
+
+** Analysis **
+
+Your analysis starts here:
+"""
 
         description = self.model(
             system_prompt=system_prompt, user_prompt=problem_description
@@ -214,7 +216,6 @@ class GeneticPrompting:
                 Review the new functions, so they are fully compliant with the function specification.
                 Functions will be evaluated on their performance on the test set.
 
-                
                 The format of the output should follow the same JSON format below. Do not enclose the functions with parenthesis and do not enumerate them.
                 Try to diversify the functions used in the generated functions.
 
@@ -258,50 +259,45 @@ class GeneticPrompting:
         return [get_primitive_tree(individual) for individual in set(population)]
 
     def _get_guided_mutation_prompt(self, description, individual, score):
-        return (
-            f"""
+        return f"""
     Write a new function using the following function, the explanation of the task, and the primitive specification below to build the function tree, do not add any number or primitive that is not mentioned in the list of valid primitives.
-    The function is expressed as a tree structure using parenthesis, without any python code.
+    Output only the mutated function tree, formatted as a single line with parentheses.
     
     A mutation is defined as the following steps:
     
-    1. build the tree of the function
-    2. analyze the tree branches with respect to the description of the task
-    3. identify one of the subtrees that might underperform for the task in hand
-    4. create a new valid subtree using the available primitives and valid primitive arguments and replace the identified subtree
+    1. Examine the function tree branches with respect to the description of the task
+    2. Identify a subtree that contributes to a significant error in the function's output based on the task description, otherwise search for a subtree that appears redundant
+    3. Create a new valid and improved subtree using the available primitives and valid primitive arguments and replace the identified subtree
     
     Use number {random.randint(0,9999999)} as random seed for the generation of the mutation.
-    The mutation can be inspired by the function evaluation score and the the description of the task mentioned below.
-    If something is strange, consider adding functions that check the training data for action to be done on the testing output list.
+    The tree mutation should be inspired by the function accuracy and the the description of the task mentioned below.
+    The mutated function has to be different to the function below.
 
-    This is the input function that has to be mutated. Build the tree and replace one of the subtrees.
+    This is the function that has to be mutated.
+    Do not show any description of the steps done during the mutation, only the mutated function needs to be predicted.
     
     {individual}
 
-    When evaluated, the function above has a score of {score} of 1.0.
+    When evaluated, the function above has an accuracy of {score} of 1.0.
+    Accuracy is calculated as proportion of correct elements in the testing output list. 
 
-    No other python code or primitive should be added than the function.
-    Just output the mutated function.
+    Ensure the mutated function uses only the provided primitives and arguments. Do not introduce any new symbols or operations.
     Review the new function, so it is fully compliant with the primitives.
-    Try to balance training and testing primitives and combine primitives present in the input function.
 
     {functions}
 
     The task has the following description, which can be used to guide the mutated function to get a higher score.
 
     <explanation>
-    """
-            + description
-            + """
+    {description}
     </explanation>
     """
-        )
 
     def get_guided_mutation_program(self, description, individual):
         count = 0
 
         individual = (str(individual[0]), individual[1])
-        while count < 5:
+        while count < 3:
             try:
                 new_program = self._get_guided_mutation_program(description, individual)
                 return new_program

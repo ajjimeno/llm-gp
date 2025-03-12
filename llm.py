@@ -120,14 +120,24 @@ class Qwen(LLMModel):
             logger.info("Unable to run on GPU using flash attention, will run on CPU using sdpa attention mechanism")
             self.attn = "sdpa"
 
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model_name,
-            torch_dtype=torch.float16,
-            device_map="cuda",
-            quantization_config=bnb_config,
-            use_sliding_window=False,
-            attn_implementation=self.attn
-        )
+        if model_name.endswith("AWQ"):
+            logger.info(f"Loading AWQ {model_name}")
+            self.model = AutoModelForCausalLM.from_pretrained(
+                model_name,
+                torch_dtype=torch.float16,
+                device_map="cuda",
+                use_sliding_window=False,
+                attn_implementation=self.attn
+            )
+        else:
+            self.model = AutoModelForCausalLM.from_pretrained(
+                model_name,
+                torch_dtype=torch.float16,
+                device_map="cuda",
+                quantization_config=bnb_config,
+                use_sliding_window=False,
+                attn_implementation=self.attn
+            )
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     def __call__(self, system_prompt, user_prompt) -> str:
