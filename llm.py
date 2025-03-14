@@ -57,11 +57,13 @@ class LLMModel(ABC):
         """
 
         if not torch.cuda.is_available():
-            print("No GPU available, defaulting to CPU")
+            logger.info("No GPU available, defaulting to CPU")
             return False
 
-        if importlib.util.find_spec('flash_attn') is None:
-            print(f"No package flash_attn available for import. Ensure it is installed and try again!")
+        if importlib.util.find_spec("flash_attn") is None:
+            logger.info(
+                f"No package flash_attn available for import. Ensure it is installed and try again!"
+            )
             return False
 
         gpu_name = torch.cuda.get_device_name()
@@ -69,16 +71,16 @@ class LLMModel(ABC):
         # tuple value representing the minor and major capability of the gpu
         gpu_capability = torch.cuda.get_device_capability(gpu_idx)
 
-        print(f"The following GPU is available: ")
-        print(f"\tname: {gpu_name}")
-        print(f"\tindex: {gpu_idx}")
-        print(f"\tCapability: {gpu_capability[0]}.{gpu_capability[1]}")
+        logger.info(f"The following GPU is available: ")
+        logger.info(f"\tname: {gpu_name}")
+        logger.info(f"\tindex: {gpu_idx}")
+        logger.info(f"\tCapability: {gpu_capability[0]}.{gpu_capability[1]}")
 
-        if gpu_capability[0] >= 8: # ampere=8
-            print("gpu support flash_attn")
+        if gpu_capability[0] >= 8:  # ampere=8
+            logger.info("gpu support flash_attn")
             return True
         else:
-            print("gpu does not support flash_attn")
+            logger.info("gpu does not support flash_attn")
             return False
 
 
@@ -98,15 +100,21 @@ class Openai(LLMModel):
 
         return response.choices[0].message.content
 
+
 class Ollama(LLMModel):
     def __call__(self, system_prompt, user_prompt) -> str:
-        response = ollama.chat('qwen2.5-coder:32b-instruct-q4_0', messages=[
+        logger.info(user_prompt)
+        response = ollama.chat(
+            "qwen2.5-coder:32b-instruct-q4_0",
+            messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
-            ]
+            ],
+            options={"num_ctx": 1500},
         )
 
-        return response['message']['content']
+        return response["message"]["content"]
+
 
 class Qwen(LLMModel):
     def __init__(
@@ -129,7 +137,9 @@ class Qwen(LLMModel):
             logger.info("Flash attention will be used as the attention mechanism")
             self.attn = "flash_attention_2"
         else:
-            logger.info("Unable to run on GPU using flash attention, will run on CPU using sdpa attention mechanism")
+            logger.info(
+                "Unable to run on GPU using flash attention, will run on CPU using sdpa attention mechanism"
+            )
             self.attn = "sdpa"
 
         if model_name.endswith("AWQ"):
@@ -139,7 +149,7 @@ class Qwen(LLMModel):
                 torch_dtype=torch.float16,
                 device_map="cuda",
                 use_sliding_window=False,
-                attn_implementation=self.attn
+                attn_implementation=self.attn,
             )
         else:
             self.model = AutoModelForCausalLM.from_pretrained(
@@ -148,12 +158,12 @@ class Qwen(LLMModel):
                 device_map="cuda",
                 quantization_config=bnb_config,
                 use_sliding_window=False,
-                attn_implementation=self.attn
+                attn_implementation=self.attn,
             )
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     def __call__(self, system_prompt, user_prompt) -> str:
-        print(user_prompt)
+        logger.info(user_prompt)
         messages = [
             {
                 "role": "system",

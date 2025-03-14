@@ -10,9 +10,7 @@ def read_matrix(file_obj):
 
 
 def get_training_examples(problem):
-    input_folder = os.path.join(
-        "/home/antonio/Documents/data/experiments", problem, "training"  # noqa
-    )
+    input_folder = os.path.join(os.getenv("DATA_FOLDER"), problem, "training")  # noqa
 
     examples = []
 
