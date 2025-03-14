@@ -156,16 +156,42 @@ class GeneticPrompting:
     def __init__(self):
         self.model = get_model(model_name=os.getenv("LLM_NAME"))
 
+
+    def get_best_description(self, task, retries=5):
+        descriptions = "\n".join([f"<description id='{i}'>" + self.get_problem_description(task) + "</description>" for i in range(retries)])
+
+        user_prompt = f"""
+            ** Task: Given the following descriptions and examples, select the description that better explains the examples and summarise it in the output.
+            Only output the new description. A description is better if it is simpler and if it manages to explain the examples.
+
+            "***descriptions***
+            {descriptions}
+
+            ***examples***
+            {get_training_examples(task)}
+
+            """
+
+
+        description = self.model(
+            system_prompt=system_prompt, user_prompt =user_prompt
+        )
+
+        logger.info(description)
+
+        return description
+
+
     def get_problem_description(self, task):
         problem_description = f"""
-**Task:** Analyze the following training and testing input-output list examples to determine the underlying transformation rules.
+**Task:** Analyze the following training and testing input-output list examples to determine the underlying transformation function.
 
 **Format:** List of lists with dictionaries that represent examples: `[input_list] -> [output_list]`
 
 **Constraints:**
 
-* The transformation rule may vary across examples, but it is similar.
-* Within a single example, the rule is consistently applied.
+* The transformation from input to output may vary across examples, but it is similar.
+* Within a single example, the transformation is consistently applied.
 * Identify patterns, including those that select, modify, or rearrange elements.
 * Provide a detailed explanation of the transformation rule(s) for each example, and a general explanation of all the examples.
 * Provide multiple possible explanations if the data permits.
@@ -335,7 +361,9 @@ if __name__ == "__main__":
     prompting = GeneticPrompting()
 
     for task in ["sorted", "count", "inverse", "max-min", "mixed"]:
-        description = prompting.get_problem_description(task)
+        description = prompting.get_best_description(task)
 
-        with open(f"programs-{task}.json", "w") as f:
-            json.dump(prompting.get_problem_programs(description), f)
+        #with open(f"programs-{task}.json", "w") as f:
+        #    json.dump(prompting.get_problem_programs(description), f)
+
+        break
