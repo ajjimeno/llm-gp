@@ -5,6 +5,7 @@ from typing import Literal
 import torch
 from dotenv import load_dotenv
 import importlib
+import ollama
 from openai import OpenAI
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
@@ -15,7 +16,7 @@ load_dotenv()
 logger = getLogger(__name__)
 
 
-def get_model(model_name: Literal["qwen", "deepseek"] = "qwen") -> int:
+def get_model(model_name: Literal["qwen", "deepseek", "ollama"] = "qwen") -> int:
     if model_name == "qwen":
         return (
             Qwen(os.getenv("LLM_MODEL_NAME"))
@@ -26,6 +27,8 @@ def get_model(model_name: Literal["qwen", "deepseek"] = "qwen") -> int:
         return Openai(
             api_key=os.getenv("LLM_API_KEY"), api_url=os.getenv("LLM_API_URL")
         )
+    elif model_name == "ollama":
+        return Ollama()
 
     raise ValueError(f"Model {model_name} not available")
 
@@ -95,6 +98,15 @@ class Openai(LLMModel):
 
         return response.choices[0].message.content
 
+class Ollama(LLMModel):
+    def __call__(self, system_prompt, user_prompt) -> str:
+        response = ollama.chat('qwen2.5-coder:32b-instruct-q4_0', messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ]
+        )
+
+        return response['message']['content']
 
 class Qwen(LLMModel):
     def __init__(
