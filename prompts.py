@@ -45,24 +45,6 @@ system_prompt = (
 
 functions = """
 
-        When writing the functions consider that the evaluation is done on the testing output, there should be a primitive that writes to the output used in the generated functions.
-        When writing the functions, the training set should be used to decide what is the action to do on the testing output list.
-
-        The following functions are only an example of valid syntaxis and is not an example of functions to be written.
-
-        <example>
-        comparison(equalW(input_min(), input_read()),prog2(testing_output_move_right(), swap_testing_output_next()),loop(get_testing_length_output_x(), swap_testing_output_next()))
-        </example>
-        <example>
-        comparison(equalW(input_min(), input_read()),prog2(testing_output_move_right(), swap_testing_output_next()),loop(get_testing_length_output_x(), testing_output_write(testing_input_max())))
-        </example>
-        <example>
-        prog2(testing_reset_output_position(), testing_output_write(testing_input_read()))
-        </example>
-        <example>
-        loop(get_testing_length_output_x(), testing_output_move_right())
-        </example>
-
 These are the available primitives to build the output function group by different properties describe at the beginning of the group
 The primitives are defined by the name, the types of attributes and a description of what they do.
 A primitive returns a value if it is mentioned explicitly.
@@ -108,7 +90,7 @@ reset_input_position(): resets the position to the beginning of the training inp
 These are primitives that work on the training output list:
 
 output_read(): returns the value at the current position of the training output list
-get_length_output_x(): returns an integer with the the length of the training output list
+get_length_output_x(): returns an integer with the length of the training output list
 output_move_left(): moves the current position in the training output list to the left
 output_move_right(): moves the current position in the training output list to the right
 reset_output_position(): resets the position to the beginning of the training output list
@@ -148,6 +130,25 @@ The following are examples of functions that are incorrect:
 <example>equalW(input_max(),testing_output_read())</example>
 3. The one below uses equalR, when it should use equalW for the training primitives:
 <example>equalR(input_max(),output_read())</example>
+
+When writing the functions consider that the evaluation is done on the testing output, there should be a primitive that writes to the output used in the generated functions.
+When writing the functions, the training set should be used to decide what is the action to do on the testing output list.
+
+The following functions are only an example of valid syntax and is not an example of functions to be written.
+
+<example>
+comparison(equalW(input_min(), input_read()),prog2(testing_output_move_right(), swap_testing_output_next()),loop(get_testing_length_output_x(), swap_testing_output_next()))
+</example>
+<example>
+comparison(equalW(input_min(), input_read()),prog2(testing_output_move_right(), swap_testing_output_next()),loop(get_testing_length_output_x(), testing_output_write(testing_input_max())))
+</example>
+<example>
+prog2(testing_reset_output_position(), testing_output_write(testing_input_read()))
+</example>
+<example>
+loop(get_testing_length_output_x(), testing_output_move_right())
+</example>
+
 """
 
 
@@ -214,12 +215,15 @@ Your analysis starts here:
                 No other python code or function should be added than the function, do not add any number or function that is not mentioned in the list of valid functions.
                 The functions should identify a relation between the input and output lists in the training set and apply it to the lists of the testing set.
                 Review the new functions, so they are fully compliant with the function specification.
-                Functions will be evaluated on their performance on the test set.
+                Functions will be evaluated on their performance on the testing set.
 
-                The format of the output should follow the same JSON format below. Do not enclose the functions with parenthesis and do not enumerate them.
+                The format of the output should follow the same JSON format below.
+                Do not add any explanation, just the function in the example attribute.
+                Do not enclose the functions with parenthesis and do not enumerate them.
                 Try to diversify the functions used in the generated functions.
 
-                This is an example of output functions:
+                This is an example of output functions.
+                This is the format that should be used to generate the functions, it is a list of dictionaries in which the example attribute has one of the functions.
 
                 [
                 {"example": "comparison(equal(input_min(), input_max),prog2(testing_output_move_right(), swap_testing_output_next()),loop(get_testing_length_output_x(), testing_output_write(testing_input_max())))"}
@@ -240,7 +244,8 @@ Your analysis starts here:
                     output_list = output
 
                 population += [
-                    e["example"]
+                    e[list(e.keys())[0]]
+                    #e["example"]
                     for e in json.loads(output_list)
                     # if not is_individual_invalid(e["example"])
                 ]
@@ -274,7 +279,7 @@ Your analysis starts here:
     The mutated function has to be different to the function below.
 
     This is the function that has to be mutated.
-    Do not show any description of the steps done during the mutation, only the mutated function needs to be predicted.
+    Do not show any description of the steps done during the mutation, only the mutated function needs to appear in the output.
     
     {individual}
 

@@ -100,7 +100,8 @@ class Openai(LLMModel):
 
         return response.choices[0].message.content
 
-
+# Parameter reference
+# https://github.com/ollama/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values
 class Ollama(LLMModel):
     def __call__(self, system_prompt, user_prompt) -> str:
         logger.info(user_prompt)
@@ -110,7 +111,7 @@ class Ollama(LLMModel):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            options={"num_ctx": 1500},
+            options={"num_predict": 1500, "temperature":0.0, },
         )
 
         return response["message"]["content"]
