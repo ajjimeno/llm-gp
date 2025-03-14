@@ -125,7 +125,7 @@ if __name__ == "__main__":
     if llm_population_generation:
         prompting = GeneticPrompting()
 
-        description = prompting.get_problem_description(task)
+        description = prompting.get_best_description(task)
 
         population = prompting.get_problem_programs(description)
 
