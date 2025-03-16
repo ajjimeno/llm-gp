@@ -111,7 +111,7 @@ class Ollama(LLMModel):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            options={"num_predict": 1500, "temperature":0.0, },
+            options={"num_ctx": 32768, "num_predict": 3500, "temperature":0.0, },
         )
 
         return response["message"]["content"]
