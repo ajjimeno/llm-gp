@@ -4,23 +4,39 @@ from typing import Literal
 
 import torch
 from dotenv import load_dotenv
+import importlib
+import ollama
 from openai import OpenAI
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+<<<<<<< HEAD
 import importlib.util
 from optimum.onnxruntime import ORTModelForCausalLM
 from optimum.exporters.onnx import main_export
 from pathlib import Path
 import tempfile
+=======
+
+from logger_config import getLogger
+
+>>>>>>> cb8356480a9fe142d26ba23ff8a4164f29a2c322
 load_dotenv()
 
+logger = getLogger(__name__)
 
-def get_model(model_name: Literal["qwen", "deepseek"] = "qwen") -> int:
+
+def get_model(model_name: Literal["qwen", "deepseek", "ollama"] = "qwen") -> int:
     if model_name == "qwen":
-        return Qwen()
+        return (
+            Qwen(os.getenv("LLM_MODEL_NAME"))
+            if os.getenv("LLM_MODEL_NAME", None)
+            else Qwen()
+        )
     elif model_name == "deepseek":
         return Openai(
             api_key=os.getenv("LLM_API_KEY"), api_url=os.getenv("LLM_API_URL")
         )
+    elif model_name == "ollama":
+        return Ollama()
 
     raise ValueError(f"Model {model_name} not available")
 
@@ -156,6 +172,41 @@ class LLMModel(ABC):
         """
         pass
 
+    def check_flash_att_compatibility(self) -> bool:
+        """
+        Check if flash_attention can be used, otherwise default to sdpa
+        Args:
+        Returns:
+            bool value indicating if flash_attn can be used
+        """
+
+        if not torch.cuda.is_available():
+            logger.info("No GPU available, defaulting to CPU")
+            return False
+
+        if importlib.util.find_spec("flash_attn") is None:
+            logger.info(
+                f"No package flash_attn available for import. Ensure it is installed and try again!"
+            )
+            return False
+
+        gpu_name = torch.cuda.get_device_name()
+        gpu_idx = torch.cuda.current_device()
+        # tuple value representing the minor and major capability of the gpu
+        gpu_capability = torch.cuda.get_device_capability(gpu_idx)
+
+        logger.info(f"The following GPU is available: ")
+        logger.info(f"\tname: {gpu_name}")
+        logger.info(f"\tindex: {gpu_idx}")
+        logger.info(f"\tCapability: {gpu_capability[0]}.{gpu_capability[1]}")
+
+        if gpu_capability[0] >= 8:  # ampere=8
+            logger.info("gpu support flash_attn")
+            return True
+        else:
+            logger.info("gpu does not support flash_attn")
+            return False
+
 
 class Openai(LLMModel):
     def __init__(self, api_key, api_url="https://api.deepseek.com"):
@@ -173,13 +224,29 @@ class Openai(LLMModel):
 
         return response.choices[0].message.content
 
+# Parameter reference
+# https://github.com/ollama/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values
+class Ollama(LLMModel):
+    def __call__(self, system_prompt, user_prompt) -> str:
+        logger.info(user_prompt)
+        response = ollama.chat(
+            "qwen2.5-coder:32b-instruct-q4_0",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            options={"num_ctx": 32768, "num_predict": 3500, "temperature":0.0, },
+        )
+
+        return response["message"]["content"]
+
 
 class Qwen(LLMModel):
     def __init__(
         self,
         model_name: Literal[
-        "Qwen/Qwen2.5-Coder-1.5B-Instruct", "Qwen/Qwen2.5-Coder-7B-Instruct", 
-    ] = "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+            "Qwen/Qwen2.5-Coder-1.5B-Instruct", "Qwen/Qwen2.5-Coder-7B-Instruct"
+        ] = "Qwen/Qwen2.5-Coder-1.5B-Instruct",
         bit_config: Literal["8bit", "4bit", "none"] = "4bit",
         use_onnx: bool=True
     ):
@@ -193,44 +260,39 @@ class Qwen(LLMModel):
                 load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16
             )
 
+        logger.info(f"Qwen|{model_name}|{bnb_config}")
+
         if self.check_flash_att_compatibility():
-            print("Flash attention will be used as the attention mechanism")
+            logger.info("Flash attention will be used as the attention mechanism")
             self.attn = "flash_attention_2"
         else:
-            print("Unable to run on GPU using flash attention, will run on CPU using sdpa attention mechanism")
+            logger.info(
+                "Unable to run on GPU using flash attention, will run on CPU using sdpa attention mechanism"
+            )
             self.attn = "sdpa"
 
-        
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-        print(f"self.model = {self.model}")
-        if use_onnx:
-            # load the model directly to CPU to avoid having to move it when converting to onnx
-            
-
-            print("creating a onnx version of the model for inference")
-            
-            # check to see if a onnx directory exists
-            if not os.path.exists(self.onnx_path) and not os.path.exists(os.path.join(self.onnx_path, "model.onnx")):
-                print("here")
-                self.load_model(device="cpu")
-                self.export_to_onnx()
-                self.model.config.save_pretrained(self.onnx_path)
-                
-            else:    
-                # load onnx model onto device
-                print(f"onnx_path = {self.onnx_path}")
-                self.model = ORTModelForCausalLM.from_pretrained(
-                    self.onnx_path,
-                    provider=["CUDAExecutionProvider"] if self.device=='cuda' else ["CPUExecutionProvider"],
-                    library_name="transformers" 
-                )
-
+        if model_name.endswith("AWQ"):
+            logger.info(f"Loading AWQ {model_name}")
+            self.model = AutoModelForCausalLM.from_pretrained(
+                model_name,
+                torch_dtype=torch.float16,
+                device_map="cuda",
+                use_sliding_window=False,
+                attn_implementation=self.attn,
+            )
         else:
-            self.load_model(device=self.device)
-        
+            self.model = AutoModelForCausalLM.from_pretrained(
+                model_name,
+                torch_dtype=torch.float16,
+                device_map="cuda",
+                quantization_config=bnb_config,
+                use_sliding_window=False,
+                attn_implementation=self.attn,
+            )
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     def __call__(self, system_prompt, user_prompt) -> str:
-        print(user_prompt)
+        logger.info(user_prompt)
         messages = [
             {
                 "role": "system",

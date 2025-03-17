@@ -10,9 +10,7 @@ def read_matrix(file_obj):
 
 
 def get_training_examples(problem):
-    input_folder = os.path.join(
-        "/home/antonio/Documents/data/experiments", problem, "training"  # noqa
-    )
+    input_folder = os.path.join(os.getenv("DATA_FOLDER"), problem, "training")  # noqa
 
     examples = []
 
@@ -20,8 +18,10 @@ def get_training_examples(problem):
     random.shuffle(filenames)
 
     for filename in filenames[:100]:
-        instance = []
         with open(filename) as f:
+            # training
+            training = []
+
             num_examples = int(next(f))  # Read the number of examples
 
             for _ in range(num_examples):
@@ -42,8 +42,11 @@ def get_training_examples(problem):
                     example["input"] = example["input"][0]
                 if len(example["output"]) == 1:
                     example["output"] = example["output"][0]
-                instance.append(example)
+                training.append(example)
 
-        examples.append(instance)
+            # testing
+            testing = {"input": read_matrix(f), "output": read_matrix(f)}
 
-    return json.dumps(examples, indent=4)
+        examples.append({"training": training, "testing": testing})
+
+    return json.dumps(examples)

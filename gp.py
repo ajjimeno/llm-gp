@@ -1,6 +1,7 @@
 from gp_algorithm import PrimitiveTree
 import json
 from logger_config import getLogger
+import numpy as np
 import os
 import random
 from statistics import (
@@ -62,7 +63,7 @@ def get_top_individual(population):
                 min_max_length = n_length
                 elitism_individual = individual
 
-    return min_max_length, elitism_individual
+    return min_max_length, elitism_individual 
 
 
 def evaluate_population(population, simulator):
@@ -124,7 +125,7 @@ if __name__ == "__main__":
     if llm_population_generation:
         prompting = GeneticPrompting()
 
-        description = prompting.get_problem_description(task)
+        description = prompting.get_best_description(task)
 
         population = prompting.get_problem_programs(description)
 
@@ -150,6 +151,8 @@ if __name__ == "__main__":
             population_height_statistics,
         ]:
             logger.info(f"Epoch|{epoch}|{function(population)}")
+
+        mean_score = np.mean([individual[1] for individual in population])
 
         with open("programs.txt", "w") as f:
             for individual in population:
@@ -197,19 +200,36 @@ if __name__ == "__main__":
                     description, individual
                 )
 
-                if new_program != str(individual[0]):
-                    population.append(
-                        (get_primitive_tree(new_program), s.run([new_program])[0])
+                if new_program:
+                    new_score = s.run([new_program])[0]
+
+                    logger.info(
+                        f"Epoch|{epoch}|mutation|initial|{str(individual[0])}|mutated|{new_program}|{new_score}|mean|{mean_score}"
                     )
+
+                    #if new_score >= mean_score:
+                    if new_program != str(individual[0]):
+                        population.append(
+                            (get_primitive_tree(new_program), new_score)
+                        )
 
         if llm_elite_mutation:
             new_program = prompting.get_guided_mutation_program(
                 description, elitism_individual
             )
+        
+            if new_program:
+                new_score = s.run([new_program])[0]
 
-            if new_program != str(elitism_individual[0]):
-                population.append(
-                    (get_primitive_tree(new_program), s.run([new_program])[0])
+                logger.info(
+                    f"Epoch|{epoch}|mutation|initial|{str(elitism_individual[0])}|mutated|{new_program}|{new_score}|mean|{mean_score}"
                 )
 
+                #if new_score >= mean_score:
+                if new_program != str(elitism_individual[0]):
+                    population.append(
+                        (get_primitive_tree(new_program), new_score)
+                    )
+
+    
         population.append(elitism_individual)
