@@ -8,17 +8,9 @@ import importlib
 import ollama
 from openai import OpenAI
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
-<<<<<<< HEAD
-import importlib.util
-from optimum.onnxruntime import ORTModelForCausalLM
-from optimum.exporters.onnx import main_export
-from pathlib import Path
-import tempfile
-=======
 
 from logger_config import getLogger
 
->>>>>>> cb8356480a9fe142d26ba23ff8a4164f29a2c322
 load_dotenv()
 
 logger = getLogger(__name__)
