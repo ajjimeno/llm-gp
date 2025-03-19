@@ -43,7 +43,7 @@ class LLMModel(ABC):
         self.attn = None
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.do_sampling = False # use the model default as the default here
-        self.onnx_path = Path("./onnx_model")
+        # self.onnx_path = Path("./onnx_model")
 
     def check_flash_att_compatibility(self) -> bool:
         """
@@ -240,7 +240,6 @@ class Qwen(LLMModel):
             "Qwen/Qwen2.5-Coder-1.5B-Instruct", "Qwen/Qwen2.5-Coder-7B-Instruct"
         ] = "Qwen/Qwen2.5-Coder-1.5B-Instruct",
         bit_config: Literal["8bit", "4bit", "none"] = "4bit",
-        use_onnx: bool=True
     ):
         super().__init__()
 
@@ -252,14 +251,14 @@ class Qwen(LLMModel):
                 load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16
             )
 
-        logger.info(f"Qwen|{model_name}|{bnb_config}")
+        logger.info(f"Qwen|{model_name}|{bit_config}")
 
         if self.check_flash_att_compatibility():
             logger.info("Flash attention will be used as the attention mechanism")
             self.attn = "flash_attention_2"
         else:
             logger.info(
-                "Unable to run on GPU using flash attention, will run on CPU using sdpa attention mechanism"
+                f"Unable to run on GPU using flash attention, will run on {self.device} using sdpa attention mechanism"
             )
             self.attn = "sdpa"
 
@@ -277,7 +276,7 @@ class Qwen(LLMModel):
                 model_name,
                 torch_dtype=torch.float16,
                 device_map="cuda",
-                quantization_config=bnb_config,
+                quantization_config=bit_config,
                 use_sliding_window=False,
                 attn_implementation=self.attn,
             )

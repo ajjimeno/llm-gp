@@ -1,4 +1,4 @@
-from gp_algorithm import PrimitiveTree
+
 import json
 from logger_config import getLogger
 import numpy as np
@@ -20,7 +20,7 @@ os.environ["PYTHONPATH"] = f"{gp_path}:{current_path}"
 
 # Also add to sys.path for the current process
 sys.path.insert(0, gp_path)
-
+from gp_algorithm import PrimitiveTree
 import SimulatorCPU as simulator
 
 from dotenv import dotenv_values, load_dotenv
@@ -138,7 +138,7 @@ if __name__ == "__main__":
 
     elitism_individual = None
 
-    for epoch in tqdm(range(5)):
+    for epoch in tqdm(range(1500)):
         min_max_length, elitism_individual = get_top_individual(population)
 
         logger.info(
