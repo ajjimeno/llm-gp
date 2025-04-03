@@ -39,7 +39,7 @@ def run_experiments(arg_dict, iter=10):
     """
     Runs experiments with all combinations of arguments.
     """
-    for i in range(iter):
+    for i in [9]:
         keys = list(arg_dict.keys())
         values = list(arg_dict.values())
         value_combinations = product(*values)
@@ -67,13 +67,13 @@ def run_experiments(arg_dict, iter=10):
 if __name__ == "__main__":
     arg_variables = {
         "RUNNING_TASK": [
-            "count",
-            "inverse",
+            #"count",
             "sorted",
-            "max-min",
+            "inverse,"
+            #"max-min",
         ],
         "DATA_FOLDER": ["./data/experiments"],
-        "POPULATION_SIZE": [300, 3000],
+        "POPULATION_SIZE": [300000],
     }
 
     run_experiments(arg_variables, iter=10)

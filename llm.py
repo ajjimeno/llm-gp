@@ -150,7 +150,7 @@ class Qwen(LLMModel):
                 torch_dtype=torch.float16,
                 device_map="cuda",
                 use_sliding_window=False,
-                attn_implementation=self.attn,
+                use_flash_attention_2=True,
             )
         else:
             self.model = AutoModelForCausalLM.from_pretrained(
@@ -161,7 +161,7 @@ class Qwen(LLMModel):
                 use_sliding_window=False,
                 attn_implementation=self.attn,
             )
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name.replace("-AWQ", ""))
 
     def __call__(self, system_prompt, user_prompt) -> str:
         logger.info(user_prompt)

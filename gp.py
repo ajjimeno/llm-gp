@@ -84,6 +84,55 @@ def evaluate_population(population, simulator):
 
     return population
 
+from glob import glob
+from process_test import read_test, write_test
+import os
+import shutil
+
+def copy_files(src, prefix, dst):
+    for filename in glob(src + "/*"):
+        filebase = os.path.basename(filename)
+        shutil.copy2(filename, dst + "/" + prefix + filebase)
+
+def rerun_test(folder, program):
+    try:
+        shutil.rmtree("./tmp")
+    except Exception as e:
+        print(f"Error removing directory: {e}")
+    try:
+        os.makedirs("./tmp", exist_ok=True)
+    except Exception as e:
+        print(f"Error creating directory: {e}")
+
+    for filename in glob(folder + "/test-*.txt"):
+        data = read_test(filename)
+        write_test("./tmp/0.txt", data, data["testing"]["output"])
+
+        s = simulator.Runner(os.path.abspath("./tmp"))
+        output = s.runProgram(program)
+        print(output)
+        write_test(filename, data, output)
+
+def recreate_test_cases(folder, program):
+    dst = folder + "/training-complemented"
+
+    try:
+        shutil.rmtree(dst)
+    except Exception as e:
+        print(f"Error removing directory: {e}")
+
+    try:
+        os.makedirs(dst, exist_ok=True)
+    except Exception as e:
+        print(f"Error creating directory: {e}")
+
+    copy_files(folder + "/training", "train-", dst)
+    copy_files(folder + "/testing", "test-", dst)
+
+    rerun_test(dst, program)
+
+    return simulator.Runner(dst)
+
 
 if __name__ == "__main__":
 
@@ -110,6 +159,7 @@ if __name__ == "__main__":
     logger.info(json.dumps(dotenv_values()))
     logger.info(task)
 
+    """
     if task not in [
         "count",
         "inverse",
@@ -119,7 +169,7 @@ if __name__ == "__main__":
         "mixed-100",
     ]:
         raise ValueError("Revise task")
-
+    """
     population = []
 
     if llm_population_generation:
@@ -130,106 +180,144 @@ if __name__ == "__main__":
         population = prompting.get_problem_programs(description)
 
     s = simulator.Runner(f"{os.getenv('DATA_FOLDER')}/{task}/training")
+    s_training = simulator.Runner(f"{os.getenv('DATA_FOLDER')}/{task}/training")
     s_testing = simulator.Runner(f"{os.getenv('DATA_FOLDER')}/{task}/testing")
 
     population += get_population(population_size)
 
     population = list(zip(population, s.run(population)))
 
+    from read_experiments import get_previous_programs
+
+    #for p in get_previous_programs(task):
+    #    ind = get_primitive_tree(p)
+    #    population.append((ind, s.run([ind])[0]))
+
     elitism_individual = None
+    elitism_individual_training = None
 
-    for epoch in tqdm(range(1500)):
-        min_max_length, elitism_individual = get_top_individual(population)
+    for i in range(25):
+        if elitism_individual:
+            # get the elitism individual based on the training set
+            # keep the individual
+            
+            #if elitism_individual_training:
+            #    population.append(elitism_individual_training)
 
-        logger.info(
-            f"Epoch|{epoch}|Top|{elitism_individual[0]}|Length|{len(elitism_individual[0])}|Height|{elitism_individual[0].height}|Training|{elitism_individual[1]}|Testing|{s_testing.run([elitism_individual[0]])[0]}"
-        )
+            #print(population)
+            programs = [program for program, _ in population]
+            scores = s_training.run(programs)
+            population_training = list(zip(programs, scores))
 
-        for function in [
-            population_performance_statistics,
-            population_length_statistics,
-            population_height_statistics,
-        ]:
-            logger.info(f"Epoch|{epoch}|{function(population)}")
+            min_length, elitism_individual_training = get_top_individual(population_training)
 
-        mean_score = np.mean([individual[1] for individual in population])
-
-        with open("programs.txt", "w") as f:
-            for individual in population:
-                print(str(individual), file=f)
-
-        population = [
-            (PrimitiveTree(program), score)
-            for program, score in selStochasticUniversalSampling(
-                [
-                    individual
-                    for individual in population
-                    if len(individual[0]) < min_max_length + 25
-                ],
-                k=population_size,
+            logger.info(
+                f"Iter|{i}|Top|{elitism_individual_training[0]}|Length|{len(elitism_individual_training[0])}|Height|{elitism_individual_training[0].height}|Training|{elitism_individual_training[1]}|Testing|{s_testing.run([elitism_individual_training[0]])[0]}"
             )
-        ]
 
-        for i in tqdm(range(0, len(population), 2)):
-            if random.random() > crossover_probability:
-                if i + 1 >= len(population):
-                    break
+            # Recreate the test cases
+            s = recreate_test_cases(f"{os.getenv('DATA_FOLDER')}/{task}", elitism_individual_training[0])
+            # Simulate over the population
+            population = get_population(population_size)
 
-                individual1, _ = population[i]
-                individual2, _ = population[i + 1]
+            print("Program:", elitism_individual_training)
+            # Keep the elitism individual
+            #population.append(elitism_individual_training[0])
+            #programs = [ind[0] for ind in population]
+            population = [(program, score) for program, score in zip(population,s.run(population))]  
 
-                program1, program2 = toolbox.mate(individual1, individual2)
+        for epoch in tqdm(range(1500)):
+            min_max_length, elitism_individual = get_top_individual(population)
 
-                population[i] = (program1, -1)
-                population[i + 1] = (program2, -1)
+            logger.info(
+                f"Epoch|{epoch}|Top|{elitism_individual[0]}|Length|{len(elitism_individual[0])}|Height|{elitism_individual[0].height}|Training|{elitism_individual[1]}|Testing|{s_testing.run([elitism_individual[0]])[0]}"
+            )
 
-        for i in tqdm(range(len(population))):
-            if random.random() > mutation_probability:
-                individual, _ = population[i]
+            for function in [
+                population_performance_statistics,
+                population_length_statistics,
+                population_height_statistics,
+            ]:
+                logger.info(f"Epoch|{epoch}|{function(population)}")
 
-                (new_program,) = toolbox.mutate(individual)
+            mean_score = np.mean([individual[1] for individual in population])
 
-                population[i] = (new_program, -1)
+            with open("programs.txt", "w") as f:
+                for individual in population:
+                    print(str(individual), file=f)
 
-        evaluate_population(population, s)
-
-        for i in tqdm(range(len(population))):
-            if random.random() > llm_mutation_probability:
-                individual = population[i]
-                new_program = prompting.get_guided_mutation_program(
-                    description, individual
+            population = [
+                (PrimitiveTree(program), score)
+                for program, score in selStochasticUniversalSampling(
+                    [
+                        individual
+                        for individual in population
+                        if len(individual[0]) < min_max_length + 25
+                    ],
+                    k=population_size,
                 )
+            ]
 
+            for i in tqdm(range(0, len(population), 2)):
+                if random.random() > crossover_probability:
+                    if i + 1 >= len(population):
+                        break
+
+                    individual1, _ = population[i]
+                    individual2, _ = population[i + 1]
+
+                    program1, program2 = toolbox.mate(individual1, individual2)
+
+                    population[i] = (program1, -1)
+                    population[i + 1] = (program2, -1)
+
+            for i in tqdm(range(len(population))):
+                if random.random() > mutation_probability:
+                    individual, _ = population[i]
+
+                    (new_program,) = toolbox.mutate(individual)
+
+                    population[i] = (new_program, -1)
+
+            evaluate_population(population, s)
+
+            for i in tqdm(range(len(population))):
+                if random.random() > llm_mutation_probability:
+                    individual = population[i]
+                    new_program = prompting.get_guided_mutation_program(
+                        description, individual
+                    )
+
+                    if new_program:
+                        new_score = s.run([new_program])[0]
+
+                        logger.info(
+                            f"Epoch|{epoch}|mutation|initial|{str(individual[0])}|mutated|{new_program}|{new_score}|mean|{mean_score}"
+                        )
+
+                        #if new_score >= mean_score:
+                        if new_program != str(individual[0]):
+                            population.append(
+                                (get_primitive_tree(new_program), new_score)
+                            )
+
+            if llm_elite_mutation:
+                new_program = prompting.get_guided_mutation_program(
+                    description, elitism_individual
+                )
+            
                 if new_program:
                     new_score = s.run([new_program])[0]
 
                     logger.info(
-                        f"Epoch|{epoch}|mutation|initial|{str(individual[0])}|mutated|{new_program}|{new_score}|mean|{mean_score}"
+                        f"Epoch|{epoch}|mutation|initial|{str(elitism_individual[0])}|mutated|{new_program}|{new_score}|mean|{mean_score}"
                     )
 
                     #if new_score >= mean_score:
-                    if new_program != str(individual[0]):
+                    if new_program != str(elitism_individual[0]):
                         population.append(
                             (get_primitive_tree(new_program), new_score)
                         )
 
-        if llm_elite_mutation:
-            new_program = prompting.get_guided_mutation_program(
-                description, elitism_individual
-            )
         
-            if new_program:
-                new_score = s.run([new_program])[0]
-
-                logger.info(
-                    f"Epoch|{epoch}|mutation|initial|{str(elitism_individual[0])}|mutated|{new_program}|{new_score}|mean|{mean_score}"
-                )
-
-                #if new_score >= mean_score:
-                if new_program != str(elitism_individual[0]):
-                    population.append(
-                        (get_primitive_tree(new_program), new_score)
-                    )
-
-    
-        population.append(elitism_individual)
+            population.append(elitism_individual)
