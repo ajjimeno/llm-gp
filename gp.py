@@ -138,7 +138,7 @@ if __name__ == "__main__":
 
     elitism_individual = None
 
-    for epoch in tqdm(range(1500)):
+    for epoch in tqdm(range(5)):
         min_max_length, elitism_individual = get_top_individual(population)
 
         logger.info(
