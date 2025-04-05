@@ -16,7 +16,7 @@ load_dotenv()
 logger = getLogger(__name__)
 
 
-def get_model(model_name: Literal["qwen", "deepseek", "ollama"] = "qwen") -> int:
+def get_model(model_name: Literal["qwen", "deepseek", "ollama", "openrouter"] = "qwen") -> int:
     if model_name == "qwen":
         return (
             Qwen(os.getenv("LLM_MODEL_NAME"))
@@ -29,6 +29,8 @@ def get_model(model_name: Literal["qwen", "deepseek", "ollama"] = "qwen") -> int
         )
     elif model_name == "ollama":
         return Ollama()
+    elif model_name == "openrouter":
+        return OpenRouter()
 
     raise ValueError(f"Model {model_name} not available")
 
@@ -99,6 +101,29 @@ class Openai(LLMModel):
         )
 
         return response.choices[0].message.content
+
+class OpenRouter(LLMModel):
+    def __init__(self):
+        #print(os.getenv("OPENROUTER_API_KEY"))
+        self.client = OpenAI(base_url="https://openrouter.ai/api/v1",
+                             api_key=os.getenv("OPENROUTER_API_KEY"))
+
+    def __call__(self, system_prompt, user_prompt) -> str:
+        print(system_prompt)
+        print(user_prompt)
+        response = self.client.chat.completions.create(
+            model="qwen/qwen-2.5-coder-32b-instruct",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+        )
+
+        print(response)
+        logger.info(response.choices[0].message.content)
+
+        return response.choices[0].message.content
+
 
 # Parameter reference
 # https://github.com/ollama/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values
