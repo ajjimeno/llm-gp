@@ -12,3 +12,4 @@ onnxruntime-gpu
 transformers-onnx
 optimum
 ollama
+deap==1.3.1

@@ -1,8 +1,9 @@
-from logger_config import getLogger
 import math
 import random
 
 import numpy as np
+
+from logger_config import getLogger
 
 logger = getLogger(__name__)
 

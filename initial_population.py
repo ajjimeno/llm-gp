@@ -3,7 +3,6 @@ from programs_check import toolbox
 
 def get_population(population_size):
     pop = toolbox.population(population_size)
-
     return pop
 
 

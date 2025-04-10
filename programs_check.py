@@ -1,9 +1,13 @@
 import logging
 import operator
 
-import gp_algorithm
 from deap import base, creator, gp, tools
+
+import gp_algorithm
 from runner import Runner, set_pset
+
+gp.genGrow = gp_algorithm.genGrow
+gp.generate = gp_algorithm.generate
 
 logger = logging.getLogger(__name__)
 

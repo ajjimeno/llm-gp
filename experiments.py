@@ -67,13 +67,13 @@ def run_experiments(arg_dict, iter=10):
 if __name__ == "__main__":
     arg_variables = {
         "RUNNING_TASK": [
-            "count",
-            "inverse",
+            # "count",
+            # "inverse",
             "sorted",
-            "max-min",
+            # "max-min",
         ],
         "DATA_FOLDER": ["./data/experiments"],
-        "POPULATION_SIZE": [300, 3000],
+        "POPULATION_SIZE": [3000],
     }
 
     run_experiments(arg_variables, iter=10)

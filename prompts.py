@@ -11,7 +11,6 @@ from llm import get_model
 from logger_config import getLogger
 from programs_check import check_programs, get_primitive_tree, get_valid_program
 
-
 load_dotenv()
 
 logger = getLogger(__name__)
@@ -156,9 +155,15 @@ class GeneticPrompting:
     def __init__(self):
         self.model = get_model(model_name=os.getenv("LLM_NAME"))
 
-
     def get_best_description(self, task, retries=5):
-        descriptions = "\n".join([f"<description id='{i}'>" + self.get_problem_description(task) + "</description>" for i in range(retries)])
+        descriptions = "\n".join(
+            [
+                f"<description id='{i}'>"
+                + self.get_problem_description(task)
+                + "</description>"
+                for i in range(retries)
+            ]
+        )
 
         user_prompt = f"""
             ** Task: Given the following descriptions and examples, select the description that better explains the examples and summarise it in the output.
@@ -172,15 +177,11 @@ class GeneticPrompting:
 
             """
 
-
-        description = self.model(
-            system_prompt=system_prompt, user_prompt =user_prompt
-        )
+        description = self.model(system_prompt=system_prompt, user_prompt=user_prompt)
 
         logger.info(description)
 
         return description
-
 
     def get_problem_description(self, task):
         problem_description = f"""
@@ -271,7 +272,7 @@ Your analysis starts here:
 
                 population += [
                     e[list(e.keys())[0]]
-                    #e["example"]
+                    # e["example"]
                     for e in json.loads(output_list)
                     # if not is_individual_invalid(e["example"])
                 ]
@@ -363,7 +364,7 @@ if __name__ == "__main__":
     for task in ["sorted", "count", "inverse", "max-min", "mixed"]:
         description = prompting.get_best_description(task)
 
-        #with open(f"programs-{task}.json", "w") as f:
+        # with open(f"programs-{task}.json", "w") as f:
         #    json.dump(prompting.get_problem_programs(description), f)
 
         break
