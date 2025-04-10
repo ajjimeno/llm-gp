@@ -24,6 +24,8 @@ pip install -r requirements.txt
 
 Set up the tool's environment variables in `.env` file.
 The environment variables set the running parameters.
+Update the `DATA_FOLDER` variable with the location of the data set.
+An example data set is availble [here](https://github.com/ajjimeno/list-data).
 
 ```
 python gp.py
