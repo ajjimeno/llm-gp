@@ -30,3 +30,16 @@ An example data set is availble [here](https://github.com/ajjimeno/list-data).
 ```
 python gp.py
 ```
+
+# Citation
+
+If you use this software, cite as follow:
+
+```
+@article{yepes2025evolutionary,
+  title={Evolutionary thoughts: integration of large language models and evolutionary algorithms},
+  author={Yepes, Antonio Jimeno and Barnard, Pieter},
+  journal={arXiv preprint arXiv:2505.05756},
+  year={2025}
+}
+```
