@@ -24,6 +24,9 @@ def selStochasticUniversalSampling(individuals, k):
     This function uses the :func:`~random.uniform` function from the python base
     :mod:`random` module.
     """
+    if not individuals:
+        raise ValueError("selStochasticUniversalSampling: individuals is empty")
+
     fits = [math.exp(score * 50) - 1 for _, score in individuals]
 
     sum_fits = sum(fits)
