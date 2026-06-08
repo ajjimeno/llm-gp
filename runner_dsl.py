@@ -280,6 +280,20 @@ def set_pset_dsl(learned_path=None, mdl_threshold=None):
         # Skip if already registered (base primitives or dsl_repeat pre-registered above)
         if dsl_name in pset.mapping:
             continue
-        pset.addPrimitive(lambda: None, [], Operation, name=dsl_name)
+        # Register AU/LLM-generalized primitives with their persisted free-
+        # parameter arity ("n_params" in learned_dsl.json — see learnable-dsl
+        # main.py's sleep phase) so the grammar can actually supply RInteger
+        # arguments (get0..get9) instead of uniformly registering every
+        # learned primitive as a no-arg Operation, which made parameterized
+        # candidates structurally uninvocable by the GP search.
+        n_params = entry.get("n_params") or 0
+        if n_params == 1:
+            pset.addPrimitive(lambda c: None, [RInteger], Operation, name=dsl_name)
+        elif n_params == 2:
+            pset.addPrimitive(lambda a, b: None, [RInteger, RInteger], Operation, name=dsl_name)
+        elif n_params >= 3:
+            pset.addPrimitive(lambda a, b, c: None, [RInteger, RInteger, RInteger], Operation, name=dsl_name)
+        else:
+            pset.addPrimitive(lambda: None, [], Operation, name=dsl_name)
 
     return pset
